@@ -32,7 +32,7 @@
 list_sections() {
 	debug_msg "list_sections ($@)"
 	check_module_index
-	cut -d: -f2 "$MODULE_INDEX" | sort | uniq
+    sqlite3 $MODULE_INDEX 'select distinct(location) from module_index'
 	find $MOONBASE/zlocal -name DETAILS | sed "s:^$MOONBASE\/::g;s:\/[^\/]*\/DETAILS$::g" | sort | uniq
 	return 0
 }
@@ -53,8 +53,9 @@ list_modules() {
 		exit 1
 	fi
 
-	if grep -q ":$1$" "$MODULE_INDEX"; then
-		grep ":$1$" "$MODULE_INDEX" | cut -d: -f1
+    if [[ $(sqlite3 $MODULE_INDEX "select count(*) from module_index where location = '$1'") != "0" ]]
+    then
+        sqlite3 $MODULE_INDEX "select pkg from module_index where location = '$1'"
 		return 0
 	else
 	 (
@@ -126,11 +127,11 @@ create_module_index() {
   fi
 
   # this should be safe enough:
-  lock_file $MODULE_INDEX &&
-  install -m644 $TMP_INDEX $MODULE_INDEX
+  sqlite3 $MODULE_INDEX 'drop table if exists module_index' &&
+      sqlite3 $MODULE_INDEX 'create table module_index (pkg text, location text)' &&
+      sqlite3 -separator : $MODULE_INDEX ".import $TMP_INDEX module_index"
 
   # do not forget to do these at any time:
-  unlock_file $MODULE_INDEX
   temp_destroy $TMP_INDEX
 }
 
@@ -183,7 +184,9 @@ find_section() {
 	fi
 
 	# otherwise check for ordinary modules named that way
-	SECTION=$(awk -F: "(\$1==\"$1\"){print \$2;exit 0}" "$MODULE_INDEX")
+	SECTION=$(sqlite3 $MODULE_INDEX \
+		"select location from module_index where pkg = '$1'")
+    # SECTION=$(awk -F: "(\$1==\"$1\"){print \$2;exit 0}" "$MODULE_INDEX")
 	if [[ -n "$SECTION" ]] && [[ -d "$MOONBASE/$SECTION/$1" ]] ; then
 		echo "$SECTION"
 		return 0
@@ -206,7 +209,9 @@ find_section() {
 	fi
 
 	# and search again, this should be quick now
-	SECTION=$(awk -F: "(\$1==\"$1\"){print \$2;exit 0}" "$MODULE_INDEX")
+	SECTION=$(sqlite3 $MODULE_INDEX \
+        "select location from module_index where pkg = '$1'")
+	# SECTION=$(awk -F: "(\$1==\"$1\"){print \$2;exit 0}" "$MODULE_INDEX")
 	if [[ -n "$SECTION" ]] && [[ -d "$MOONBASE/$SECTION/$1" ]] ; then
 		echo "$SECTION"
 		return 0
@@ -250,7 +255,7 @@ run_details() {
         cat "$MOONBASE/$SECTION/$1/DETAILS.$PLATFORM" | sed '/^\s*VERSION=/d' > $TMP_DETAILS
       else
         cat "$MOONBASE/$SECTION/$1/DETAILS" | sed '/^\s*VERSION=/d' > $TMP_DETAILS
-      fi        
+      fi
       VERSION="$WANT_VERSION"
       . $TMP_DETAILS &> /dev/null || return 255
       temp_destroy $TMP_DETAILS
