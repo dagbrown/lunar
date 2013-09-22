@@ -83,7 +83,12 @@ list_moonbase() {
 # purpose  : return a list of installed (or held) modules
 list_installed() {
   debug_msg "list_installed ($@)"
-  sed -n "s/:[[:digit:]]*:\\([^:]\\++\\)\\?\\(installed\\|held\\)\\(+[^:]\\+\\)\\?:.*$//p" "$MODULE_STATUS"
+  sqlite3 "$MODULE_STATUS" \
+      "select distinct m.package
+           from modules_states ms
+           inner join modules m on ms.module_id = m.rowid
+           inner join states s on ms.state_id = s.rowid
+           where s.name = 'installed' or s.name = 'held'"
 }
 
 
@@ -305,7 +310,7 @@ module_installed()
 {
   debug_msg "module_installed ($@)"
 
-  has_module_state $1 "\\(installed\\|held\\)"
+  has_module_state $1 installed || has_module_state $1 held
 }
 
 
@@ -315,7 +320,7 @@ module_installed()
 module_held() {
   debug_msg "module_held ($@)"
 
-  has_module_state $1 "held"
+  has_module_state $1 held
 }
 
 
@@ -386,7 +391,7 @@ module_license_accepted() {
 module_exiled() {
   debug_msg "module_exiled ($@)"
 
-  has_module_state $1 "exiled"
+  has_module_state $1 exiled
 }
 
 
@@ -396,7 +401,7 @@ module_exiled() {
 module_enforced() {
   debug_msg "module_enforced ($@)"
 
-  has_module_state $1 "enforced"
+  has_module_state $1 enforced
 }
 
 
@@ -405,7 +410,7 @@ module_enforced() {
 # purpose  : return the installed version of $MODULE
 installed_version() {
   debug_msg "installed_version ($@)"
-  grep "^$1:" "$MODULE_STATUS" | cut -d: -f4
+  sqlite3 "$MODULE_STATUS" "select version from modules where package = '$1'"
 }
 
 
@@ -429,17 +434,13 @@ hold_modules() {
   local MODULE
   debug_msg "hold_modules ($@)"
   if [[ -n "$1" ]] ; then
-    lock_file $MODULE_STATUS_BACKUP &&
-    lock_file $MODULE_STATUS &&
     for MODULE in "$@" ; do
       if ! module_installed $MODULE; then
         error_message "${PROBLEM_COLOR}Cannot hold not installed module ${MODULE_COLOR}$MODULE${DEFAULT_COLOR}"
       else
-        add_module_state $MODULE "held"
+        add_module_state $MODULE held
       fi
     done
-    unlock_file $MODULE_STATUS
-    unlock_file $MODULE_STATUS_BACKUP
   fi
 }
 
@@ -451,13 +452,9 @@ unhold_modules () {
   local MODULE
   debug_msg "unhold_modules ($@)"
   if [[ -n "$1" ]] ; then
-    lock_file $MODULE_STATUS_BACKUP &&
-    lock_file $MODULE_STATUS &&
     for MODULE in "$@" ; do
-      remove_module_state $MODULE "held"
+      remove_module_state $MODULE held
     done
-    unlock_file $MODULE_STATUS
-    unlock_file $MODULE_STATUS_BACKUP
   fi
 }
 
@@ -469,17 +466,13 @@ exile_modules() {
   local MODULE
   debug_msg "exile_modules ($@)"
   if [[ -n "$1" ]] ; then
-    lock_file $MODULE_STATUS_BACKUP &&
-    lock_file $MODULE_STATUS &&
     for MODULE in "$@" ; do
       if $(module_installed $MODULE); then
         error_message "${PROBLEM_COLOR}Cannot exile installed module ${MODULE_COLOR}$MODULE${DEFAULT_COLOR}"
       else
-        change_module_state $MODULE "exiled" "(installed|held|enforced)"
+        change_module_state $MODULE exiled installed held enforced
       fi
     done
-    unlock_file $MODULE_STATUS
-    unlock_file $MODULE_STATUS_BACKUP
   fi
 }
 
@@ -491,13 +484,9 @@ unexile_modules () {
   local MODULE
   debug_msg "unexile_modules  ($@)"
   if [ -n "$1" ] ; then
-    lock_file $MODULE_STATUS_BACKUP &&
-    lock_file $MODULE_STATUS &&
     for MODULE in "$@" ; do
-      remove_module_state $MODULE "exiled"
+      remove_module_state $MODULE exiled
     done
-    unlock_file $MODULE_STATUS
-    unlock_file $MODULE_STATUS_BACKUP
   fi
 }
 
@@ -509,13 +498,9 @@ enforce_modules() {
   local MODULE
   debug_msg "enforce_modules ($@)"
   if [[ -n "$1" ]] ; then
-    lock_file $MODULE_STATUS_BACKUP &&
-    lock_file $MODULE_STATUS &&
     for MODULE in "$@" ; do
-      change_module_state $MODULE "enforced" "exiled"
+      change_module_state $MODULE enforced exiled
     done
-    unlock_file $MODULE_STATUS
-    unlock_file $MODULE_STATUS_BACKUP
   fi
 }
 
@@ -527,16 +512,45 @@ unenforce_modules () {
   local MODULE
   debug_msg "unenforce_modules  ($@)"
   if [ -n "$1" ] ; then
-    lock_file $MODULE_STATUS_BACKUP &&
-    lock_file $MODULE_STATUS &&
     for MODULE in "$@" ; do
-      remove_module_state $MODULE "enforced"
+      remove_module_state $MODULE enforced
     done
-    unlock_file $MODULE_STATUS
-    unlock_file $MODULE_STATUS_BACKUP
   fi
 }
 
+# function : create_module_status
+# usage    : create_module_status
+# purpose  : create new empty module status file
+create_module_status() {
+    sqlite3 "$MODULE_STATUS" <<EOT
+        drop table if exists modules;
+
+        create table modules (
+            package text primary key,
+            date datestamp,
+            version text,
+            size integer
+        );
+
+        drop table if exists states;
+        create table states (
+            name text primary key
+        );
+
+        insert into states values ( 'installed' );
+        insert into states values ( 'held' );
+        insert into states values ( 'exiled' );
+        insert into states values ( 'enforced' );
+
+        drop table if exists modules_states;
+
+        create table modules_states (
+            module_id integer,
+            state_id integer
+        );
+EOT
+    touch $MODULE_STATUS $DEPENDS_STATUS $DEPENDS_STATUS_BACKUP
+}
 
 # function : remove_module
 # usage    : remove_module; but $MODULE must be defined earlier
@@ -548,22 +562,20 @@ remove_module() {
 
   # catch this on new boxes:
   if [ ! -f $MODULE_STATUS ] ; then
-    touch $MODULE_STATUS $MODULE_STATUS_BACKUP $DEPENDS_STATUS $DEPENDS_STATUS_BACKUP
+      create_module_status
   fi
 
   verbose_msg "updating lunar state files after module removal"
-  lock_file $MODULE_STATUS_BACKUP                              &&
-  lock_file $MODULE_STATUS                                     &&
-  {
-    OLD_STATE=$(get_module_state $1 "(installed|held)")
-    grep -v "^$1:" "$MODULE_STATUS" > $MODULE_STATUS_BACKUP
-    if [ -n "$OLD_STATE" ]; then
-      echo "$1::$OLD_STATE::" >> $MODULE_STATUS_BACKUP
-    fi
-    cp $MODULE_STATUS_BACKUP $MODULE_STATUS
-  }
-  unlock_file $MODULE_STATUS
-  unlock_file $MODULE_STATUS_BACKUP
+  sqlite3 "$MODULE_STATUS" \
+    "insert into modules
+         select '$1', null, null, null
+         where not exists (
+            select * from modules where package = '$1');
+     update modules
+        set version = null,
+            date = null,
+            size = null
+        where package = '$1'"
 }
 
 
@@ -576,23 +588,24 @@ add_module()  {
 
   # catch this on new boxes:
   if [ ! -f $MODULE_STATUS ] ; then
-    touch $MODULE_STATUS $MODULE_STATUS_BACKUP $DEPENDS_STATUS $DEPENDS_STATUS_BACKUP
+    create_module_status
   fi
 
   verbose_msg "updating lunar state files after module installation"
-  lock_file $MODULE_STATUS_BACKUP                             &&
-  lock_file $MODULE_STATUS                                    &&
-  {
-    OLD_STATE=$(get_module_state $1 $2)
-    grep -v "^$1:" "$MODULE_STATUS" > $MODULE_STATUS_BACKUP
-    if [ -n "$OLD_STATE" ]; then
-      OLD_STATE="+$OLD_STATE"
-    fi
-    echo "$1:$(date -u +%Y%m%d):$2$OLD_STATE:$3:$4" >> $MODULE_STATUS_BACKUP     &&
-    cp $MODULE_STATUS_BACKUP $MODULE_STATUS
-  }
-  unlock_file $MODULE_STATUS
-  unlock_file $MODULE_STATUS_BACKUP
+  datestamp=$(date -u +%Y%m%d)
+  sqlite3 "$MODULE_STATUS" \
+      "insert into modules
+           select '$1', null, null, null
+           where not exists (
+              select * from modules where package = '$1');"
+
+  sqlite3 "$MODULE_STATUS" \
+      "update modules
+          set version = '$3',
+              date = '$datestamp',
+              size = $4
+          where package = '$1';"
+  add_module_state $1 $2
 }
 
 
@@ -603,9 +616,20 @@ add_module()  {
 add_module_state() {
   debug_msg "add_module_state ($@)"
 
-  awk -F: -v mod="$1" -v state="$2" 'BEGIN {OFS=FS ; ret=0} ; $1==mod {if ($3 !~ /(^|\+)'"$2"'(\+|$)/) {$3=$3"+"state} ret=1} ; {print} ; END {exit ret}' "$MODULE_STATUS" > $MODULE_STATUS_BACKUP &&
-  echo "$MODULE::$2::" >> $MODULE_STATUS_BACKUP
-  cp $MODULE_STATUS_BACKUP $MODULE_STATUS
+  sqlite3 "$MODULE_STATUS" \
+       "insert into modules
+            select '$1', null, null, null
+            where not exists (
+                select * from modules where package = '$1');
+        insert into modules_states
+            select m.rowid, s.rowid
+                from modules m, states s
+                where m.package = '$1' and s.name = '$2'
+                and not exists (
+                    select * from modules_states ms
+                        inner join modules m on m.rowid = ms.module_id
+                        inner join states s on s.rowid = ms.state_id
+                        where m.package = '$1' and s.name = '$2')"
 }
 
 
@@ -616,8 +640,10 @@ add_module_state() {
 remove_module_state() {
   debug_msg "remove_module_state ($@)"
 
-  awk -F: -v mod="$1" 'BEGIN {OFS=FS} ; $1==mod {$3=gensub(/(^|\+)('"$2"'\+)+|((^|\+)'"$2"')+$/,"\\1","g",$3) ; if ($3=="") {next}} ; {print}' "$MODULE_STATUS" > $MODULE_STATUS_BACKUP  &&
-  cp $MODULE_STATUS_BACKUP $MODULE_STATUS
+  sqlite3 "$MODULE_STATUS" \
+      "delete from modules_states
+       where module_id = ( select rowid from modules where package = '$1' )
+         and state_id = ( select rowid from states where name = '$2' )"
 }
 
 
@@ -628,9 +654,14 @@ remove_module_state() {
 change_module_state() {
   debug_msg "change_module_state ($@)"
 
-  awk -F: -v mod="$1" -v state="$2" 'BEGIN {OFS=FS ; ret=0} ; $1==mod {{$3=gensub(/(^|\+)('"$3"'\+)+|((^|\+)'"$3"')+$/,"\\1","g",$3) ; if ($3=="") {$3=state} ; if ($3 !~ /(^|\+)'"$2"'(\+|$)/) {$3=$3"+"state}} ret=1} ; {print} ; END {exit ret}' "$MODULE_STATUS" > $MODULE_STATUS_BACKUP &&
-  echo "$MODULE::$2::" >> $MODULE_STATUS_BACKUP
-  cp $MODULE_STATUS_BACKUP $MODULE_STATUS
+  module=$1
+  new_state=$2
+  shift 2
+  for old_state
+  do
+      remove_module_state $old_state
+  done
+  add_module_state $module $new_state
 }
 
 
@@ -640,7 +671,12 @@ change_module_state() {
 has_module_state() {
   debug_msg "has_module_state ($@)"
 
-  grep -q "^$1:[[:digit:]]*:\\([^:]\\++\\)\\?$2\\(+[^:]\\+\\)\\?:" "$MODULE_STATUS"
+  [[ $(sqlite3 "$MODULE_STATUS" \
+      "select count(*)
+        from modules_states ms
+            inner join modules m on ms.module_id = m.rowid
+            inner join states s on ms.state_id = s.rowid
+            where s.name = '$2' and m.package = '$1'") -gt 0 ]]
 }
 
 
@@ -650,7 +686,13 @@ has_module_state() {
 get_module_state() {
   debug_msg "get_module_state ($@)"
 
-  awk -F: -v mod="$1" '$1==mod {print gensub(/(^|\+)('"$2"'\+)+|((^|\+)'"$2"')+$/,"\\1","g",$3)}' "$MODULE_STATUS"
+  echo $(sqlite3 "$MODULE_STATUS" \
+    "select s.name
+        from modules_states ms
+            inner join modules m on ms.module_id = m.rowid
+            inner join states s on ms.state_id = s.rowid
+        where m.package = '$1'
+            and s.name != '$2'") | tr ' ' ','
 }
 
 
@@ -691,7 +733,12 @@ module_is_expired() {
     if [ "$MODULE" == moonbase ] ; then
       return 255
     fi
-    LINE=$(awk -F: -v mod=$MODULE '$1==mod && $3 ~ /(^|\+)installed(\+|$)/ && $3 !~ /(^|\+)held(\+|$)/ {print "IDATE="$2" IVERSION="$4}' "$MODULE_STATUS")
+    LINE=$(module_installed $MODULE && module_held $MODULE ||
+           sqlite3 -separator ' ' "$MODULE_STATUS" \
+                "select date, version from modules
+                    where package = '$MODULE'" |
+           awk '{print "IDATE=" $1 " IVERSION=" $2}')
+
     if [ -n "$LINE" ] ; then
       eval $LINE
       if run_details $MODULE &> /dev/null ; then

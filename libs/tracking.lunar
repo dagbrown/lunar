@@ -115,7 +115,7 @@ finish_install() {
   create_install_cache  &&
 
   add_module $MODULE installed $VERSION $(find_module_size $MODULE $VERSION)
-  verbose_msg "module size is $(find_module_size $MODULE $VERSION)"
+  verbose_msg "module size is $(find_module_size $MODULE $VERSION)KB"
 }
 
 

@@ -1260,7 +1260,13 @@ main()  {
 
     installed)
       if [ -z "$2" ] ; then
-        grep -E '[:+](installed|held)[:+]' "$MODULE_STATUS" | view_file
+          sqlite3 -separator : "$MODULE_STATUS" "
+            select m.package, m.date, s.name, m.version, m.size
+                from modules_states ms
+                    inner join modules m on ms.module_id = m.rowid
+                    inner join states s on ms.state_id = s.rowid
+                where s.name in ('installed', 'held')" | view_file
+        # grep -E '[:+](installed|held)[:+]' "$MODULE_STATUS" | view_file
       elif [ -n "$(installed_version $2)" ] ; then
         echo "$(installed_version $2)"
       else
@@ -1270,15 +1276,30 @@ main()  {
       ;;
 
     held)
-      grep -E '[:+]held[:+]' "$MODULE_STATUS" | cut -d: -f1
+      sqlite3 -separator : "$MODULE_STATUS" "
+        select m.package
+            from modules_states ms
+                inner join modules m on ms.module_id = m.rowid
+                inner join states s on ms.state_id = s.rowid
+            where s.name = 'held'"
       ;;
 
     exiled)
-      grep -E '[:+]exiled[:+]' "$MODULE_STATUS" | cut -d: -f1
+      sqlite3 -separator : "$MODULE_STATUS" "
+        select m.package
+            from modules_states ms
+                inner join modules m on ms.module_id = m.rowid
+                inner join states s on ms.state_id = s.rowid
+            where s.name = 'exiled'"
       ;;
 
     enforced)
-      grep -E '[:+]enforced[:+]' "$MODULE_STATUS" | cut -d: -f1
+      sqlite3 -separator : "$MODULE_STATUS" "
+        select m.package
+            from modules_states ms
+                inner join modules m on ms.module_id = m.rowid
+                inner join states s on ms.state_id = s.rowid
+            where s.name = 'enforced'"
       ;;
 
     expired)
