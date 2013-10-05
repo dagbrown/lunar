@@ -60,7 +60,10 @@ list_modules() {
 	else
 	 (
 		 cd $MOONBASE/$1
-		 find . -maxdepth 2 -name DETAILS -type f | sed 's/\.\///g;s/\/DETAILS$//g'
+         for i in */DETAILS */*/DETAILS
+         do
+            [[ -f $i ]] && echo ${i%/DETAILS}
+         done
 	 )
 	fi
 }
