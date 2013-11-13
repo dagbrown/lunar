@@ -204,8 +204,8 @@ validate_source_dir()  {
 
   verbose_msg "validating \"$SOURCE_DIRECTORY\""
   if  [[ -n $SOURCE_DIRECTORY                     &&
-      [[    $SOURCE_DIRECTORY != $BUILD_DIRECTORY &&
-      [[    $SOURCE_DIRECTORY =~ $BUILD_DIRECTORY ]]
+            $SOURCE_DIRECTORY != $BUILD_DIRECTORY &&
+            $SOURCE_DIRECTORY =~ $BUILD_DIRECTORY ]]
   then
     true
   else
