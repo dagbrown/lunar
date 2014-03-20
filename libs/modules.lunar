@@ -738,9 +738,9 @@ module_is_expired() {
     fi
     LINE=$(module_installed $MODULE && module_held $MODULE ||
            sqlite3 -separator ' ' "$MODULE_STATUS" \
-                "select date, version from modules
-                    where package = '$MODULE'" |
-           awk '{print "IDATE=" $1 " IVERSION=" $2}')
+               "select 'IDATE=' || date || ' IVERSION=' || version
+                    from modules
+                    where package = '$MODULE'")
 
     if [ -n "$LINE" ] ; then
       eval $LINE
