@@ -61,13 +61,10 @@ download_module() {
 	MAX_SOURCES=${MAX_SOURCES:-100}
 
 	# loop over all sources
-	for (( N = 1 ; N <= MAX_SOURCES ; N++ )) ; do
+	for (( N = 0 ; N <= MAX_SOURCES ; N++ )) ; do
 		# get the URL part
-		TEMP=SOURCE$((N))
-		TEMP=${TEMP/%SOURCE1/SOURCE}
-		eval SRC=\${$TEMP}
-		eval URLS=\${${TEMP}_URL_FULL[@]}
-		eval OLD_URLS=\${${TEMP}_URL[@]}
+        eval SRC=\${SOURCE${N/#0/}} # SOURCE0 turns into just SOURCE
+        eval URLS=\${SOURCE${N/#0/}_URL_FULL[@]}
 
 		if [ -z "$SRC" ] ; then
 			break
@@ -89,8 +86,8 @@ download_module() {
 
 		add_url() {
 			if [ -n "$1" ]; then
-				if ! echo " $ALL_URLS " | grep -q " $1$2 "; then
-					ALL_URLS="$ALL_URLS $1$2"
+				if [[ ! $ALL_URLS =~ $1 ]]; then
+					ALL_URLS="$ALL_URLS $1"
 				fi
 			fi
 		}
@@ -159,7 +156,6 @@ download_module() {
 )
 }
 
-
 testpack () {
 	local FILENAME
 	debug_msg "testpack ($@)"
@@ -202,7 +198,6 @@ testpack () {
 		false
 	fi
 }
-
 
 show_downloading()
 {
