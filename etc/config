@@ -40,9 +40,9 @@ export        DIALOGRC=/etc/lunar/dialogrc
         DEPENDS_STATUS=/var/state/lunar/depends
  DEPENDS_STATUS_BACKUP=/var/state/lunar/depends.backup
          DEPENDS_CACHE=/var/state/lunar/depends.cache
-         MODULE_STATUS=/var/state/lunar/packages
+         MODULE_STATUS=/var/state/lunar/packages.db
   MODULE_STATUS_BACKUP=/var/state/lunar/packages.backup
-          MODULE_INDEX=/var/state/lunar/module.index
+          MODULE_INDEX=/var/state/lunar/module.index.db
 
          INSTALL_CACHE=/var/cache/lunar
           SOURCE_CACHE=${SOURCE_CACHE:-/var/spool/lunar}
