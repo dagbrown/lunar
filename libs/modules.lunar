@@ -638,7 +638,8 @@ add_module_state() {
   debug_msg "add_module_state ($@)"
 
   sqlite3 "$MODULE_STATUS" \
-       "insert into modules
+       "begin transaction;
+        insert into modules
             select '$1', null, null, null
             where not exists (
                 select * from modules where package = '$1');
@@ -650,7 +651,8 @@ add_module_state() {
                     select * from modules_states ms
                         inner join modules m on m.rowid = ms.module_id
                         inner join states s on s.rowid = ms.state_id
-                        where m.package = '$1' and s.name = '$2')"
+                        where m.package = '$1' and s.name = '$2');
+        commit;"
 }
 
 
