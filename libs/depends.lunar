@@ -57,14 +57,27 @@ function find_depends() {
         DEPS=$(MODULE=$1 . $DEPFILE)
       fi
     else
-      DEPS=$(awk -F: -v mod=$1 '{if ($1==mod){print $2}}' "$DEPENDS_CACHE")
+      DEPS=$(sqlite $MODULE_STATUS "
+        select d.package from modules_depends dm
+          inner join modules d on d.rowid = dm.dependency_id
+          where module_id = (
+            select rowid from module_index where package = '$1'")
     fi
     for DEP in $DEPS ; do
       DEP=$(expand_alias "$DEP")
       # this is our shortcut out:
       if ! grep -qx "$DEP" "$TMP_FDEPS" ; then
         echo "$DEP" >> $TMP_FDEPS
-        if grep -q "^$1:$DEP:required:" "$DEPENDS_CACHE" ; then
+        local required
+        required=$(sqlite3 $MODULE_STATUS "
+            select count(*) from modules_depends where
+              module_id = (
+                select rowid from module_index where package = '$1'
+              ) and dependency_id = (
+                select rowid from module_index where package = '$DEP'
+              ) and required = true")
+        if [[ $required > 0 ]]
+        then
           echo "$DEP"
           find_depends_intern "$DEP"
         fi
@@ -94,7 +107,12 @@ sort_by_dependency() {
 
   # tsort the existing dep relations in all of moonbase
   TMP_TSRT=$(temp_create "dependency.sort")
-  awk -F: '{print $1,$2}' "$DEPENDS_CACHE" | while read A B ; do
+  sqlite3 -s ' ' $MODULE_STATUS "
+    select m.package, d.package
+      from modules_depends dm
+        inner join modules m on m.rowid = dm.module_id
+        inner join modules d on m.rowid = dm.dependency_id" |
+  while read A B ; do
     B=$(MODULE=$A NEVER_ASK=1 DEPS_ONLY= expand_alias $B)
     echo "$A $B" >> $TMP_TSRT
   done
@@ -112,7 +130,7 @@ sort_by_dependency() {
 
   # now reverse grep over the files:
   cat "$TMP_ALL" | grep -x -f "$TMP_LIST"
-  
+
   temp_destroy $TMP_LIST
   temp_destroy $TMP_ALL
 }
@@ -121,7 +139,11 @@ sort_by_dependency() {
 is_depends()  {
   debug_msg "is_depends ($@)"
   # Is $1 a previously selected dependency of any module.
-  return $(grep -q ":$1:on:" "$DEPENDS_STATUS")
+  return $(sqlite3 $MODULE_STATUS "
+        select count(*) == 0 from modules_depends
+        where dependency_id = (
+            select rowid from module_index where package = '$1'
+        ) and active = 1")
 }
 
 
@@ -131,49 +153,73 @@ in_depends()  {
 
   DEP=$(expand_alias $2)
   # Was $2 presented as a dependency for module $1
-  return $(grep -q "^$1:$DEP:on:" "$DEPENDS_STATUS")
+  # return $(grep -q "^$1:$DEP:on:" "$DEPENDS_STATUS")
+  return $(sqlite3 $MODULE_STATUS "
+        select count(*) == 0 from modules_depends
+        where module_id = (
+            select rowid from module_index where package = '$1'
+        ) and dependency_id = (
+            select rowid from module_index where package = '$DEP'
+        ) and active = 1")
 }
 
 
 remove_depends() {
   debug_msg "remove_depends ($@)"
-  lock_file $DEPENDS_STATUS_BACKUP &&
-  lock_file $DEPENDS_STATUS        ||
-  return 1
 
   if [ -n "$2" ] ; then
-    if grep -q "^$1:$2:" "$DEPENDS_STATUS" ; then
-      grep -v "^$1:$2:" $DEPENDS_STATUS_BACKUP > $DEPENDS_STATUS
-      verbose_msg "removing depends for \"$1\" on \"$2\""
-    fi
+    sqlite3 $MODULE_STATUS "delete from modules_depends where
+      module_id = ( select rowid from module_index where package = '$1' ) and
+      dependency_id = ( select rowid from module_index where package = '$2' )"
   elif grep -q "^$1:" "$DEPENDS_STATUS" ; then
-    grep -v "^$1:" "$DEPENDS_STATUS_BACKUP" | \
-    grep -v ":$1:on:optional:" > $DEPENDS_STATUS
-    verbose_msg "removing all depends for and optional on \"$1\""
+    sqlite3 $MODULE_STATUS "delete from modules_depends where
+      module_id = ( select rowid from module_index where package = '$1' )"
   fi
-
-  cp $DEPENDS_STATUS $DEPENDS_STATUS_BACKUP
-
-  unlock_file $DEPENDS_STATUS &&
-  unlock_file $DEPENDS_STATUS_BACKUP
 }
 
 
 add_depends() {
   debug_msg "add_depends ($@)"
-  if ! grep -q "^$1:$2:$3:$4:$5:$6$" "$DEPENDS_STATUS" ; then
-    lock_file $DEPENDS_STATUS_BACKUP                       &&
-    lock_file $DEPENDS_STATUS                              &&
-    if grep -q "^$1:$2:" "$DEPENDS_STATUS" ; then
-      grep -v "^$1:$2:" "$DEPENDS_STATUS_BACKUP" > $DEPENDS_STATUS
-    else
-      verbose_msg "adding \"$4\" depends for \"$1\" on \"$2\" ($3)"
-    fi
+  local package="$1"
+  local dependency="$2"
+  local active="$3"
+  local required="$4"
+  local flags_for_active="$5"
+  local flags_for_not_active="$6"
 
-    echo "$1:$2:$3:$4:$5:$6" >> $DEPENDS_STATUS            &&
-    cp $DEPENDS_STATUS $DEPENDS_STATUS_BACKUP              &&
-    unlock_file $DEPENDS_STATUS                            &&
-    unlock_file $DEPENDS_STATUS_BACKUP
+  if [[ $active == "active" ]]
+  then
+      active=1
+  else
+      active=0
+  fi
+
+  if [[ $required == "required" ]]
+  then
+      required=1
+  else
+      required=0
+  fi
+
+  dependency_present=$(sqlite3 $MODULE_STATUS "
+      select count(*) from modules_depends
+    where module_id = (
+      select rowid from module_index where package = '$package'
+    ) and dependency_id = (
+      select rowid from module_index where package = '$dependency'
+    ) and active = $active
+      and required = $required
+      and flags_for_active = '$flags_for_active'
+      and flags_for_not_active = '$flags_for_not_active'")
+
+  if [[ $dependency_present -eq 0 ]]
+  then
+    sqlite3 $MODULE_STATUS "
+        insert into dependencies values (
+          ( select rowid from module_index where package = '$package' ),
+          ( select rowid from module_index where package = '$dependency' ),
+          $active, $required,
+          '$flags_for_active', '$flags_for_not_active' )"
   fi
 }
 
@@ -258,7 +304,7 @@ run_depends() {
           fi
           lin --deps $DEP
           echo "$DEP" >> $TEMP_PREPAREDDEPS
-        elif query  "$DEPMOD_AVAIL 
+        elif query  "$DEPMOD_AVAIL
           ${QUERY_COLOR}Purpose: ${DEFAULT_COLOR}${MESSAGE_COLOR}$4 ${QUERY_COLOR}?" $DEFAULT ; then
           add_depends  "$MODULE"  "$DEP"  "on"   "optional"  "$2"  "$3"
           # don't check depends if there are already checked
@@ -295,10 +341,10 @@ run_depends() {
 satisfy_depends()  {
   local TMP_FILE DEP_MODULE DEP_STATUS DEP_ON DEP_OFF LINE
   debug_msg "satisfy_depends ($@)"
-  if [ -n "$DEPS_ONLY" ] ; then 
+  if [ -n "$DEPS_ONLY" ] ; then
     return 0
   fi
-  
+
   # make sure we start with clean OPTS here:
   unset OPTS
 
@@ -367,7 +413,7 @@ conflicts() {
   fi
 
   true
-} 
+}
 
 
 run_conflicts() {
@@ -419,23 +465,40 @@ create_depends_cache()
   local TMP_DEP_CACHE DEPFILES DEPFILE MODULE
   debug_msg "create_depends_cache($@)"
 
-  if [[ ! -w $DEPENDS_CACHE && -e $DEPENDS_CACHE ]] ; then
-    return 1
-  fi
-
   if [ $MODULE_INDEX -nt $DEPENDS_CACHE ] ; then
     verbose_msg "Generating a new depends cache..."
-    TMP_DEP_CACHE=$(temp_create "depends.cache")
+    sqlite3 $MODULE_STATUS "
+      drop table if exists modules_depends;
+
+      create table modules_depends (
+        module_id integer,
+        dependency_id integer,
+        active boolean,
+        required boolean,
+        flags_for_active text,
+        flags_for_not_active text
+      );"
+    # TMP_DEP_CACHE=$(temp_create "depends.cache")
 
     # you guessed it: local decls.
     depends() {
-      echo "$MODULE:$1:required:$2:$3:"
+      local module_id
+      module_id=$(sqlite3 $MODULE_STATUS "
+        select rowid from module_index where package = '$MODULE'")
+      dependency_id=$(sqlite3 $MODULE_STATUS "
+        select rowid from module_index where package = '$1'")
+      echo "$module_id:$dependency_id:$2:1:$3:"
     }
 
     optional_depends() {
       # No quotes, this prevent us from parsing newlines
       # if someone by accident add a newline in optional_depends
-      echo $MODULE:$1:optional:$2:$3:$4
+      module_id=$(sqlite3 $MODULE_STATUS "
+        select rowid from module_index where package = '$MODULE'")
+      dependency_id=$(sqlite3 $MODULE_STATUS "
+        select rowid from module_index where package = '$1'")
+
+      echo $MODULE:$module_id:$dependency_id:0:$3:$4
     }
 
     # yeah, this sucks:
@@ -446,7 +509,7 @@ create_depends_cache()
     # speedups for system moonbases:
     if [ "$MOONBASE" == "/var/lib/lunar/moonbase" ] && [ -f "$INSTALL_LOGS/moonbase-$(installed_version moonbase)" ] ; then
       DEPFILES=$(grep "/DEPENDS$" "$INSTALL_LOGS/moonbase-$(installed_version moonbase)")
-      # don't forget zlocal:
+      # don''t forget zlocal:
       if [ "$ZLOCAL_OVERRIDES" == "on" ] ; then
         DEPFILES="$DEPFILES $(find $MOONBASE/zlocal -type f -name DEPENDS)"
       fi
@@ -462,7 +525,8 @@ create_depends_cache()
     for DEPFILE in $DEPFILES ; do
       TMP=${DEPFILE%/*} MODULE=${TMP##*/} . $DEPFILE
     done > $TMP_DEP_CACHE &&
-    install -m644 $TMP_DEP_CACHE $DEPENDS_CACHE 
+    sqlite3 $MODULE_STATUS ".import $TMP_DEP_CACHE modules_depends"
+    touch $DEPENDS_CACHE # for the timestamp
 
     temp_destroy $TMP_DEP_CACHE
   else
@@ -475,7 +539,7 @@ update_module_depends()
 {
   local MODULE
   debug_msg "update_module_depends($@)"
-  
+
   # we declare these local to override the systems default ones:
   optional_depends()  {
     local DEP
@@ -507,7 +571,7 @@ update_module_depends()
       if has_module_file $MODULE DEPENDS ; then
         run_module_file $MODULE DEPENDS | grep -v '%'
       fi
-    ) 
+    )
   }
 
   # here starts the real work:
@@ -543,7 +607,12 @@ update_depends()
 list_installed_depending() {
   local SUBDEP
   debug_msg "list_installed_depending($2)"
-  for SUBDEP in $(grep ":$1:" "$DEPENDS_CACHE" | cut -d: -f1) ; do
+  for SUBDEP in $(sqlite $MODULE_STATUS "
+    select m.package from modules_depends dm
+      inner join modules m on m.rowid = dm.package_id
+      where dm.dependency_id = (
+        select rowid from module_index where package = '$1' )")
+  do
     if $(module_installed $SUBDEP ) ; then
       list_installed_depending $SUBDEP | sort | uniq
       echo $SUBDEP
