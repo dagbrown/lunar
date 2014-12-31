@@ -32,7 +32,7 @@
 list_sections() {
 	debug_msg "list_sections ($@)"
 	check_module_index
-    sqlite3 $MODULE_INDEX 'select distinct(location) from module_index'
+    sqlite3 $MODULE_STATUS 'select distinct(location) from module_index'
 	find $MOONBASE/zlocal -name DETAILS | sed "s:^$MOONBASE\/::g;s:\/[^\/]*\/DETAILS$::g" | sort | uniq
 	return 0
 }
@@ -53,9 +53,9 @@ list_modules() {
 		exit 1
 	fi
 
-    if [[ $(sqlite3 $MODULE_INDEX "select count(*) from module_index where location = '$1'") != "0" ]]
+    if [[ $(sqlite3 $MODULE_STATUS "select count(*) from module_index where location = '$1'") != "0" ]]
     then
-        sqlite3 $MODULE_INDEX "select pkg from module_index where location = '$1'"
+        sqlite3 $MODULE_STATUS "select pkg from module_index where location = '$1'"
 		return 0
 	else
 	 (
@@ -132,12 +132,17 @@ create_module_index() {
     debug_msg "Regenerating \$MODULE_INDEX manually..."
     find $MOONBASE -type f -name DETAILS ! -regex "$MOONBASE/zlocal/.*" \
         -printf "%h\n" | sed "s:$MOONBASE::;s:^/::;s:^\(.*\)/\([^/]*\)$:\2\:\1:" > $TMP_INDEX
+    # also, add aliases
+    find $MOONBASE -type f -name aliases | while read aliasfile; do
+        sed 's/:.*/:alias/' < $aliasfile >> $TMP_INDEX
+    done
   fi
 
   # this should be safe enough:
-  sqlite3 $MODULE_INDEX 'drop table if exists module_index' &&
-      sqlite3 $MODULE_INDEX 'create table module_index (pkg text, location text)' &&
-      sqlite3 -separator : $MODULE_INDEX ".import $TMP_INDEX module_index"
+  sqlite3 $MODULE_STATUS 'drop table if exists module_index' &&
+      sqlite3 $MODULE_STATUS 'create table module_index (pkg text, location text)' &&
+      sqlite3 -separator : $MODULE_STATUS ".import $TMP_INDEX module_index"
+
 
   # do not forget to do these at any time:
   temp_destroy $TMP_INDEX
