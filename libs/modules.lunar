@@ -55,7 +55,7 @@ list_modules() {
 
     if [[ $(sqlite3 $MODULE_STATUS "select count(*) from module_index where location = '$1'") != "0" ]]
     then
-        sqlite3 $MODULE_STATUS "select pkg from module_index where location = '$1'"
+        sqlite3 $MODULE_STATUS "select package from module_index where location = '$1'"
 		return 0
 	else
 	 (
@@ -101,18 +101,6 @@ list_installed() {
 create_module_index() {
   local TMP_INDEX
   debug_msg "create_module_index ($@)"
-  # make sure it exists before trying to see it's writeable
-  # this also assures that depends.cache gets remade
-  if [[ ! -f $MODULE_INDEX ]] ; then
-    touch $MODULE_INDEX &> /dev/null
-  fi
-
-  # silently fail if we cannot write to $MODULE_INDEX, it is okay
-  # for this to fail in case we are a mere user using lvu's search
-  # functionality
-  if [[ ! -w "$MODULE_INDEX" ]] ; then
-    return 0
-  fi
 
   verbose_msg "Updating module index file..."
   # doing this allows us to ctrl-C the process without breaking the
@@ -120,18 +108,26 @@ create_module_index() {
   TMP_INDEX=$(temp_create "module.index")
 
   # here we have two options: system moonbase or custom:
-  if [[ "$MOONBASE" == "/var/lib/lunar/moonbase" ]] && [[ -f $INSTALL_LOGS/moonbase-$(installed_version moonbase) ]] ; then
+  if [[ "$MOONBASE" == "/var/lib/lunar/moonbase" ]] &&
+     [[ -f $INSTALL_LOGS/moonbase-$(installed_version moonbase) ]] ; then
+
     # short way out:
     debug_msg "Quick generating \$MODULE_INDEX..."
-    grep "/DETAILS$" "$INSTALL_LOGS/moonbase-$(installed_version moonbase)" | \
-        sed -e 's:/var/lib/lunar/moonbase/::' -e 's:/DETAILS::g' \
-        -e 's/\/\([^/]*\)$/:\1/' -e 's/\(.*\):\(.*\)/\2:\1/g' > $TMP_INDEX
+    grep "/DETAILS$" "$INSTALL_LOGS/moonbase-$(installed_version moonbase)" |
+        sed -e 's:/var/lib/lunar/moonbase/::' \
+            -e 's:/DETAILS::g' \
+            -e 's/\/\([^/]*\)$/:\1/' \
+            -e 's/\(.*\):\(.*\)/\2:\1/g' > $TMP_INDEX
+
   else
+
     # this *really* is the fastest way to do it, no guarantees, we
     # do have to make sure MOONBASE is coherent and tidy though
     debug_msg "Regenerating \$MODULE_INDEX manually..."
     find $MOONBASE -type f -name DETAILS ! -regex "$MOONBASE/zlocal/.*" \
-        -printf "%h\n" | sed "s:$MOONBASE::;s:^/::;s:^\(.*\)/\([^/]*\)$:\2\:\1:" > $TMP_INDEX
+        -printf "%h\n" |
+      sed "s:$MOONBASE::;s:^/::;s:^\(.*\)/\([^/]*\)$:\2\:\1:" > $TMP_INDEX
+
     # also, add aliases
     find $MOONBASE -type f -name aliases | while read aliasfile; do
         sed 's/:.*/:alias/' < $aliasfile >> $TMP_INDEX
@@ -139,10 +135,14 @@ create_module_index() {
   fi
 
   # this should be safe enough:
-  sqlite3 $MODULE_STATUS 'drop table if exists module_index' &&
-      sqlite3 $MODULE_STATUS 'create table module_index (pkg text, location text)' &&
-      sqlite3 -separator : $MODULE_STATUS ".import $TMP_INDEX module_index"
+  sqlite3 $MODULE_STATUS "
+    drop table if exists module_index;
+    create table module_index (package text, location text);
+    .import $TMP_INDEX module_index"
 
+  # the old module index can still be used for its timestamp
+  # (thanks, find command)
+  touch $MODULE_INDEX
 
   # do not forget to do these at any time:
   temp_destroy $TMP_INDEX
@@ -156,7 +156,11 @@ function check_module_index() {
 (
   debug_msg "check_module_index ($@)"
   local RESULT=1
-  if [[ ! -e $MODULE_INDEX ]] || [[ ! -e $DEPENDS_CACHE ]]; then
+  local sqlite_result;
+  sqlite3_ensure_schema
+
+  if ! { sqlite_timestamp_exists "index" || sqlite_timestamp_exists "depends" }
+  then
     create_module_index
     create_depends_cache
     RESULT=0
@@ -198,7 +202,7 @@ find_section() {
 
 	# otherwise check for ordinary modules named that way
 	SECTION=$(sqlite3 $MODULE_INDEX \
-		"select location from module_index where pkg = '$1'")
+		"select location from module_index where package = '$1'")
     # SECTION=$(awk -F: "(\$1==\"$1\"){print \$2;exit 0}" "$MODULE_INDEX")
 	if [[ -n "$SECTION" ]] && [[ -d "$MOONBASE/$SECTION/$1" ]] ; then
 		echo "$SECTION"
@@ -223,7 +227,7 @@ find_section() {
 
 	# and search again, this should be quick now
 	SECTION=$(sqlite3 $MODULE_INDEX \
-        "select location from module_index where pkg = '$1'")
+        "select location from module_index where package = '$1'")
 	# SECTION=$(awk -F: "(\$1==\"$1\"){print \$2;exit 0}" "$MODULE_INDEX")
 	if [[ -n "$SECTION" ]] && [[ -d "$MOONBASE/$SECTION/$1" ]] ; then
 		echo "$SECTION"
