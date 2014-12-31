@@ -157,10 +157,8 @@ function check_module_index() {
   debug_msg "check_module_index ($@)"
   local RESULT=1
   local sqlite_result;
-  sqlite3_ensure_schema
 
-  if ! { sqlite_timestamp_exists "index" || sqlite_timestamp_exists "depends" }
-  then
+  if [ ! -e $MODULE_INDEX -o ! -e $DEPENDS_CACHE -o -n "$(find $MOONBASE -type f -name "DETAILS" -cnewer $MODULE_INDEX)" ] ; then
     create_module_index
     create_depends_cache
     RESULT=0
