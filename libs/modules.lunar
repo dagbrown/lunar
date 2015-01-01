@@ -137,8 +137,8 @@ create_module_index() {
   # this should be safe enough:
   sqlite3 $MODULE_STATUS "
     drop table if exists module_index;
-    create table module_index (package text, location text);
-    .import $TMP_INDEX module_index"
+    create table module_index (package text, location text);"
+  sqlite3 -separator : $MODULE_STATUS ".import $TMP_INDEX module_index"
 
   # the old module index can still be used for its timestamp
   # (thanks, find command)
@@ -199,7 +199,7 @@ find_section() {
 	fi
 
 	# otherwise check for ordinary modules named that way
-	SECTION=$(sqlite3 $MODULE_INDEX \
+	SECTION=$(sqlite3 $MODULE_STATUS \
 		"select location from module_index where package = '$1'")
     # SECTION=$(awk -F: "(\$1==\"$1\"){print \$2;exit 0}" "$MODULE_INDEX")
 	if [[ -n "$SECTION" ]] && [[ -d "$MOONBASE/$SECTION/$1" ]] ; then
@@ -224,7 +224,7 @@ find_section() {
 	fi
 
 	# and search again, this should be quick now
-	SECTION=$(sqlite3 $MODULE_INDEX \
+	SECTION=$(sqlite3 $MODULE_STATUS \
         "select location from module_index where package = '$1'")
 	# SECTION=$(awk -F: "(\$1==\"$1\"){print \$2;exit 0}" "$MODULE_INDEX")
 	if [[ -n "$SECTION" ]] && [[ -d "$MOONBASE/$SECTION/$1" ]] ; then
