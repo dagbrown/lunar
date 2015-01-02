@@ -555,6 +555,12 @@ unenforce_modules () {
 # purpose  : create new empty module status file
 create_module_status() {
     sqlite3 "$MODULE_STATUS" <<EOT
+        drop table if exists module_index;
+
+        create table module_index (
+            package text primary key,
+            location text
+        );
         drop table if exists modules;
 
         create table modules (
@@ -579,6 +585,29 @@ create_module_status() {
         create table modules_states (
             module_id integer,
             state_id integer
+        );
+
+        drop table if exists depends_cache;
+
+        create table depends_cache (
+            module_id integer,
+            dependency_id integer,
+            required boolean,
+            flags_for_active text,
+            flags_for_not_active text,
+            reason text
+        );
+
+        drop table if exists depends_status;
+
+        create table depends_status (
+            module_id integer,
+            dependency_id integer,
+            required boolean,
+            active boolea,
+            flags_for_active text,
+            flags_for_not_active text,
+            updated boolean default true
         );
 EOT
     touch $MODULE_STATUS $DEPENDS_STATUS $DEPENDS_STATUS_BACKUP
