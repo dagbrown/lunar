@@ -199,6 +199,10 @@ find_section() {
 	fi
 
 	# otherwise check for ordinary modules named that way
+	until ! pgrep sqlite3 > /dev/null
+	do
+		sleep 0.1
+	done
 	SECTION=$(sqlite3 $MODULE_STATUS \
 		"select location from module_index where package = '$1'")
     # SECTION=$(awk -F: "(\$1==\"$1\"){print \$2;exit 0}" "$MODULE_INDEX")
