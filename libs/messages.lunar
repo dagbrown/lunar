@@ -183,7 +183,6 @@ mquery()
             fi
         fi
         # and lookup the result in case of yes/no opts
-        echo "DEBUG $(get_module_config $1)"
         if [ "$(get_module_config $1)" == "y" ] ; then
             OPTS="$OPTS $4"
         else
