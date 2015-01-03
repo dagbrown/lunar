@@ -102,7 +102,7 @@ create_module_index() {
   local TMP_INDEX
   debug_msg "create_module_index ($@)"
 
-  verbose_msg "Updating module index file..."
+  verbose_msg "Updating module index table..."
   # doing this allows us to ctrl-C the process without breaking the
   # index file
   TMP_INDEX=$(temp_create "module.index")
@@ -125,19 +125,25 @@ create_module_index() {
     # do have to make sure MOONBASE is coherent and tidy though
     debug_msg "Regenerating \$MODULE_INDEX manually..."
     find $MOONBASE -type f -name DETAILS ! -regex "$MOONBASE/zlocal/.*" \
-        -printf "%h\n" |
-      sed "s:$MOONBASE::;s:^/::;s:^\(.*\)/\([^/]*\)$:\2\:\1:" > $TMP_INDEX
+        -printf "%h\n" | while read module
+    do
+        (
+            eval $(egrep '^ *(VERSION|UPDATED)' $module/DETAILS)
+            echo $module |
+              sed "s:$MOONBASE::;s:^/::;s:^\(.*\)/\([^/]*\)$:\2\:\1\:$VERSION\:$UPDATED:"
+        );
+    done > $TMP_INDEX
 
     # also, add aliases
     find $MOONBASE -type f -name aliases | while read aliasfile; do
-        sed 's/:.*/:alias/' < $aliasfile >> $TMP_INDEX
+        sed 's/:.*/:alias::/' < $aliasfile >> $TMP_INDEX
     done
   fi
 
   # this should be safe enough:
   sqlite3 $MODULE_STATUS "
     drop table if exists module_index;
-    create table module_index (package text, location text);"
+    create table module_index (package text, location text, version text, updated text);"
   sqlite3 -separator : $MODULE_STATUS ".import $TMP_INDEX module_index"
 
   # the old module index can still be used for its timestamp
@@ -821,13 +827,13 @@ module_is_expired() {
 # usage    : list_expired_modules
 # purpose  : return a list of modules that need to be updated
 list_expired_modules() {
-  local MODULE
   debug_msg "list_expired_modules ($@)"
-  for MODULE in $(list_installed) ; do
-    if $(module_is_expired $MODULE) ; then
-      echo "$MODULE"
-    fi
-  done
+  sqlite3 $MODULE_STATUS 'select m.package from modules m
+    inner join module_index i on m.package = i.package
+    where m.date < i.updated and not (
+        select count(*) from modules_states
+        where module_id = m.rowid and state_id = (
+            select rowid from states where name = "held" ) )'
 }
 
 
