@@ -35,13 +35,13 @@ rework_module() {
 		debug_msg "  optional_depends ($@)"
 		DEP=$(NEVER_ASK=1 DEPS_ONLY= expand_alias $1)
 		if module_exiled $DEP ; then
-            sqlite3 $MODULE_STATUS "
+            try_sqlite $MODULE_STATUS "
               insert into depends_status values (
                 ( select rowid from module_index where package = '$MODULE' ),
                 ( select rowid from module_index where package = '$DEP' ),
                 0,0,'$2','$3', 1 )"
 
-        elif [ $(sqlite3 $MODULE_STATUS "
+        elif [ $(try_sqlite $MODULE_STATUS "
             select count(*) > 0 from depends_status
                 where module_id = (
                     select rowid from module_index where package = '$MODULE'
@@ -49,7 +49,7 @@ rework_module() {
                     select rowid from module_index where package = '$DEP'
                 ) and required = 0") == 1 ]
         then
-            sqlite3 $MODULE_STATUS "
+            try_sqlite $MODULE_STATUS "
                 update depends_status
                     set flags_for_active = '$2',
                         flags_for_not_active = '$3',
@@ -67,7 +67,7 @@ rework_module() {
 		local DEP
 		debug_msg "  depends ($@)"
 		DEP=$(NEVER_ASK=1 DEPS_ONLY= expand_alias $1)
-        sqlite3 $MODULE_STATUS "
+        try_sqlite $MODULE_STATUS "
           insert into depends_status values (
             ( select rowid from module_index where package = '$MODULE' ),
             ( select rowid from module_index where package = '$DEP' ),
@@ -92,7 +92,7 @@ rework_module() {
 	# remove whatever depends was residing in the depends state file and
 	# append the new output:
 	(
-        sqlite3 $MODULE_STATUS "
+        try_sqlite $MODULE_STATUS "
             delete from depends_status where
                 module_id = (
                     select rowid from module_index where package = '$MODULE'
@@ -103,7 +103,7 @@ rework_module() {
                 ) and required = 0
                 set updated = 0;'"
 		run_depends $MODULE >> $DEPENDS_STATUS
-        sqlite3 $MODULE_STATUS "delete from depends_status where updated = 0"
+        try_sqlite $MODULE_STATUS "delete from depends_status where updated = 0"
 	)
 }
 

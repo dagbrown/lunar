@@ -32,7 +32,7 @@
 list_sections() {
 	debug_msg "list_sections ($@)"
 	check_module_index
-    sqlite3 $MODULE_STATUS 'select distinct(location) from module_index'
+    try_sqlite $MODULE_STATUS 'select distinct(location) from module_index'
 	find $MOONBASE/zlocal -name DETAILS | sed "s:^$MOONBASE\/::g;s:\/[^\/]*\/DETAILS$::g" | sort | uniq
 	return 0
 }
@@ -53,9 +53,9 @@ list_modules() {
 		exit 1
 	fi
 
-    if [[ $(sqlite3 $MODULE_STATUS "select count(*) from module_index where location = '$1'") != "0" ]]
+    if [[ $(try_sqlite $MODULE_STATUS "select count(*) from module_index where location = '$1'") != "0" ]]
     then
-        sqlite3 $MODULE_STATUS "select package from module_index where location = '$1'"
+        try_sqlite $MODULE_STATUS "select package from module_index where location = '$1'"
 		return 0
 	else
 	 (
@@ -86,7 +86,7 @@ list_moonbase() {
 # purpose  : return a list of installed (or held) modules
 list_installed() {
   debug_msg "list_installed ($@)"
-  sqlite3 "$MODULE_STATUS" \
+  try_sqlite "$MODULE_STATUS" \
       "select distinct m.package
            from modules_states ms
            inner join modules m on ms.module_id = m.rowid
@@ -147,10 +147,10 @@ create_module_index() {
   fi
 
   # this should be safe enough:
-  sqlite3 $MODULE_STATUS "
+  try_sqlite $MODULE_STATUS "
     drop table if exists module_index;
     create table module_index (package text, location text, version text, updated text);"
-  sqlite3 -separator : $MODULE_STATUS ".import $TMP_INDEX module_index"
+  try_sqlite -separator : $MODULE_STATUS ".import $TMP_INDEX module_index"
 
   # the old module index can still be used for its timestamp
   # (thanks, find command)
@@ -211,11 +211,11 @@ find_section() {
 	fi
 
 	# otherwise check for ordinary modules named that way
-	until ! pgrep sqlite3 > /dev/null
+	until ! pgrep try_sqlite > /dev/null
 	do
 		sleep 0.1
 	done
-	SECTION=$(sqlite3 $MODULE_STATUS \
+	SECTION=$(try_sqlite $MODULE_STATUS \
 		"select location from module_index where package = '$1'")
     # SECTION=$(awk -F: "(\$1==\"$1\"){print \$2;exit 0}" "$MODULE_INDEX")
 	if [[ -n "$SECTION" ]] && [[ -d "$MOONBASE/$SECTION/$1" ]] ; then
@@ -240,7 +240,7 @@ find_section() {
 	fi
 
 	# and search again, this should be quick now
-	SECTION=$(sqlite3 $MODULE_STATUS \
+	SECTION=$(try_sqlite $MODULE_STATUS \
         "select location from module_index where package = '$1'")
 	# SECTION=$(awk -F: "(\$1==\"$1\"){print \$2;exit 0}" "$MODULE_INDEX")
 	if [[ -n "$SECTION" ]] && [[ -d "$MOONBASE/$SECTION/$1" ]] ; then
@@ -454,7 +454,7 @@ module_enforced() {
 # purpose  : return the installed version of $MODULE
 installed_version() {
   debug_msg "installed_version ($@)"
-  sqlite3 "$MODULE_STATUS" "select version from modules where package = '$1'"
+  try_sqlite "$MODULE_STATUS" "select version from modules where package = '$1'"
 }
 
 
@@ -566,7 +566,7 @@ unenforce_modules () {
 # usage    : create_module_status
 # purpose  : create new empty module status file
 create_module_status() {
-    sqlite3 "$MODULE_STATUS" <<EOT
+    try_sqlite "$MODULE_STATUS" <<EOT
         drop table if exists modules;
 
         create table modules (
@@ -633,7 +633,7 @@ remove_module() {
   fi
 
   verbose_msg "updating lunar state files after module removal"
-  sqlite3 "$MODULE_STATUS" \
+  try_sqlite "$MODULE_STATUS" \
     "insert into modules
          select '$1', null, null, null
          where not exists (
@@ -659,13 +659,13 @@ add_module()  {
 
   verbose_msg "updating lunar state files after module installation"
   datestamp=$(date -u +%Y%m%d)
-  sqlite3 "$MODULE_STATUS" \
+  try_sqlite "$MODULE_STATUS" \
       "insert into modules
            select '$1', null, null, null
            where not exists (
               select * from modules where package = '$1');"
 
-  sqlite3 "$MODULE_STATUS" \
+  try_sqlite "$MODULE_STATUS" \
       "update modules
           set version = '$3',
               date = '$datestamp',
@@ -682,7 +682,7 @@ add_module()  {
 add_module_state() {
   debug_msg "add_module_state ($@)"
 
-  sqlite3 "$MODULE_STATUS" \
+  try_sqlite "$MODULE_STATUS" \
        "begin transaction;
         insert into modules
             select '$1', null, null, null
@@ -708,7 +708,7 @@ add_module_state() {
 remove_module_state() {
   debug_msg "remove_module_state ($@)"
 
-  sqlite3 "$MODULE_STATUS" \
+  try_sqlite "$MODULE_STATUS" \
       "delete from modules_states
        where module_id = ( select rowid from modules where package = '$1' )
          and state_id = ( select rowid from states where name = '$2' )"
@@ -739,7 +739,7 @@ change_module_state() {
 has_module_state() {
   debug_msg "has_module_state ($@)"
 
-  [[ $(sqlite3 "$MODULE_STATUS" \
+  [[ $(try_sqlite "$MODULE_STATUS" \
       "select count(*)
         from modules_states ms
             inner join modules m on ms.module_id = m.rowid
@@ -754,7 +754,7 @@ has_module_state() {
 get_module_state() {
   debug_msg "get_module_state ($@)"
 
-  echo $(sqlite3 "$MODULE_STATUS" \
+  echo $(try_sqlite "$MODULE_STATUS" \
     "select s.name
         from modules_states ms
             inner join modules m on ms.module_id = m.rowid
@@ -802,7 +802,7 @@ module_is_expired() {
       return 255
     fi
     LINE=$(module_installed $MODULE && module_held $MODULE ||
-           sqlite3 -separator ' ' "$MODULE_STATUS" \
+           try_sqlite -separator ' ' "$MODULE_STATUS" \
                "select 'IDATE=' || date || ' IVERSION=' || version
                     from modules
                     where package = '$MODULE'")
@@ -827,7 +827,7 @@ module_is_expired() {
 # purpose  : return a list of modules that need to be updated
 list_expired_modules() {
   debug_msg "list_expired_modules ($@)"
-  sqlite3 $MODULE_STATUS 'select m.package from modules m
+  try_sqlite $MODULE_STATUS 'select m.package from modules m
     inner join module_index i on m.package = i.package
     where m.date < i.updated and not (
         select count(*) from modules_states
