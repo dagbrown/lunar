@@ -91,7 +91,7 @@ list_installed() {
            from modules_states ms
            inner join modules m on ms.module_id = m.rowid
            inner join states s on ms.state_id = s.rowid
-           where s.name = 'installed' or s.name = 'held'"
+           where s.name = 'installed'"
 }
 
 
@@ -114,11 +114,17 @@ create_module_index() {
     # short way out:
     debug_msg "Quick generating \$MODULE_INDEX..."
     grep "/DETAILS$" "$INSTALL_LOGS/moonbase-$(installed_version moonbase)" |
-        sed -e 's:/var/lib/lunar/moonbase/::' \
-            -e 's:/DETAILS::g' \
-            -e 's/\/\([^/]*\)$/:\1/' \
-            -e 's/\(.*\):\(.*\)/\2:\1/g' > $TMP_INDEX
-
+        while read detailsfilename
+        do
+            (
+                eval $(egrep '^ *(VERSION|UPDATED)' $detailsfilename)
+                echo $detailsfilename |
+                    sed -e 's:/var/lib/lunar/moonbase/::' \
+                        -e 's:/DETAILS::g' \
+                        -e 's/\/\([^/]*\)$/:\1/' \
+                        -e "s/\\(.*\\):\\(.*\\)/\\2:\\1:$VERSION:$DETAILS/g'
+            )
+        done > $TMP_INDEX
   else
 
     # this *really* is the fastest way to do it, no guarantees, we
@@ -561,12 +567,6 @@ unenforce_modules () {
 # purpose  : create new empty module status file
 create_module_status() {
     sqlite3 "$MODULE_STATUS" <<EOT
-        drop table if exists module_index;
-
-        create table module_index (
-            package text primary key,
-            location text
-        );
         drop table if exists modules;
 
         create table modules (
@@ -644,7 +644,6 @@ remove_module() {
             size = null
         where package = '$1'"
 }
-
 
 # function: add_module
 # usage   : add_module <module_name> <state> <version> <size>
