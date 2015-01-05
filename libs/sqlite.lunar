@@ -1,8 +1,102 @@
 #!/bin/bash
+#                                                          #
+# This code is written for Lunar Linux, see                #
+# http://lunar-linux.org                                   #
+#                                                          #
+############################################################
+#                                                          #
+# $FUNCTIONS/sqlite                                        #
+# includes try_sqlite                                      #
+# 20150104 generic sqlite stuff - dagbrown                 #
+#                                                          #
+############################################################
+#                                                          #
+# Copyrighted Dave Brown 2015 under GPLv2                  #
+#                                                          #
+############################################################
 
 try_sqlite() {
+    local counter
+
+    file $MODULE_STATUS | grep -q 'SQLite 3.x database' ||
+        migrate_module_status
+
+    counter=1
     until /usr/bin/sqlite3 "$@"
     do
+        ((counter++))
+        if [[ $counter > 20 ]]
+        then
+            echo 'query failed:' >&2
+            echo "command line: sqlite3" "$@" >&2
+            return 1
+        fi
         sleep 0.1
     done
+}
+
+migrate_module_status() {
+    message "One-shot: migrating text module status to database format"
+
+    mv $MODULE_STATUS ${MODULE_STATUS}.txt
+    mv $DEPENDS_CACHE ${DEPENDS_CACHE}.txt
+    mv $DEPENDS_STATUS ${DEPENDS_STATUS}.txt
+
+    create_module_status
+    create_module_index
+
+    while read package date states version size
+    do
+        size=${size%KB}
+        echo 'insert into modules values ('
+        echo "  '$package', '$date', '$version', '$size'"
+        echo ');'
+        eval set $(echo $states | sed 's/,/ /g')
+        for state
+        do
+            echo 'insert into modules_states '
+            echo "    select modules.rowid, states.rowid"
+            echo "        from modules, states"
+            echo "        where modules.package = '$package' and"
+            echo "        states.name = '$state';"
+        done
+    done < "${MODULE_STATUS}.txt"
+
+    while read package dependency required flags_yes flags_no reason
+    do
+        reason=$(echo "$reason" | sed "s/'/''/g")
+        echo "insert into depends_cache values ("
+        echo "    ( select rowid from module_index where package = '$package' ),"
+        echo "    ( select rowid from module_index where package = '$dependency' ),"
+        if [[ $required == required ]]
+        then
+            echo "    1,"
+        else
+            echo "    0,"
+        fi
+        echo "    '$flags_yes',"
+        echo "    '$flags_no',"
+        echo "    '$reason');"
+    done < "${DEPENDS_CACHE}.txt"
+
+    while read package dependency active required flags_yes flags_no
+    do
+        echo "insert into depends_status values ("
+        echo "    ( select rowid from module_index where package = '$package' ),"
+        echo "    ( select rowid from module_index where package = '$dependency' ),"
+        if [[ $active == on ]]
+        then
+            echo "    1,"
+        else
+            echo "    0,"
+        fi
+        if [[ $required == required ]]
+        then
+            echo "    1,"
+        else
+            echo "    0,"
+        fi
+        echo "    '$flags_yes',"
+        echo "    '$flags_no',1);"
+    done < "${DEPENDS_STATUS}.txt"
 }
