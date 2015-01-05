@@ -566,7 +566,7 @@ unenforce_modules () {
 # usage    : create_module_status
 # purpose  : create new empty module status file
 create_module_status() {
-    try_sqlite "$MODULE_STATUS" <<EOT
+    sqlite3 "$MODULE_STATUS" <<EOT
         drop table if exists modules;
 
         create table modules (
