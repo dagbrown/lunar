@@ -99,65 +99,12 @@ list_installed() {
 # usage   : create_module_index
 # purpose : created an index file of module:section pair list
 create_module_index() {
-  local TMP_INDEX
-  debug_msg "create_module_index ($@)"
+    (
+        export MOONBASE
+        export MODULE_STATUS
 
-  verbose_msg "Updating module index table..."
-  # doing this allows us to ctrl-C the process without breaking the
-  # index file
-  TMP_INDEX=$(temp_create "module.index")
-
-  # here we have two options: system moonbase or custom:
-  if [[ "$MOONBASE" == "/var/lib/lunar/moonbase" ]] &&
-     [[ -f $INSTALL_LOGS/moonbase-$(installed_version moonbase) ]] ; then
-
-    # short way out:
-    debug_msg "Quick generating \$MODULE_INDEX..."
-    grep "/DETAILS$" "$INSTALL_LOGS/moonbase-$(installed_version moonbase)" |
-        while read detailsfilename
-        do
-            (
-                eval $(egrep '^ *(VERSION|UPDATED)' $detailsfilename)
-                echo $detailsfilename |
-                    sed -e 's:/var/lib/lunar/moonbase/::' \
-                        -e 's:/DETAILS::g' \
-                        -e 's/\/\([^/]*\)$/:\1/' \
-                        -e "s/\\(.*\\):\\(.*\\)/\\2:\\1:$VERSION:$DETAILS/g"
-            )
-        done > $TMP_INDEX
-  else
-
-    # this *really* is the fastest way to do it, no guarantees, we
-    # do have to make sure MOONBASE is coherent and tidy though
-    debug_msg "Regenerating \$MODULE_INDEX manually..."
-    find $MOONBASE -type f -name DETAILS ! -regex "$MOONBASE/zlocal/.*" \
-        -printf "%h\n" | while read module
-    do
-        (
-            eval $(egrep '^ *(VERSION|UPDATED)' $module/DETAILS)
-            echo $module |
-              sed "s:$MOONBASE::;s:^/::;s:^\(.*\)/\([^/]*\)$:\2\:\1\:$VERSION\:$UPDATED:"
-        );
-    done > $TMP_INDEX
-
-    # also, add aliases
-    find $MOONBASE -type f -name aliases | while read aliasfile; do
-        sed 's/:.*/:alias::/' < $aliasfile >> $TMP_INDEX
-    done
-  fi
-
-  # this should be safe enough:
-  try_sqlite $MODULE_STATUS "
-    drop table if exists module_index;
-    create table module_index (package text, location text, version text, updated text);"
-  try_sqlite -separator : $MODULE_STATUS ".import $TMP_INDEX module_index"
-
-  # the old module index can still be used for its timestamp
-  # (thanks, find command)
-  touch $MODULE_INDEX
-
-  # do not forget to do these at any time:
-  temp_destroy $TMP_INDEX
+        python $PYTHON/create_module_index.py
+    )
 }
 
 
