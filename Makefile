@@ -7,6 +7,7 @@ sbin_PROGS = prog/lin prog/lrm prog/lunar prog/lget
 plug_LIBS = $(shell ls -1 plugins/*)
 core_LIBS = $(shell ls -1 libs/*)
 menu_LIBS = $(shell ls -1 menu/*)
+python_LIBS = $(shell ls -1 python/*.py)
 
 etc = etc/config etc/dialogrc
 mirrors = $(shell ls -1 mirrors/*)
@@ -15,6 +16,7 @@ compilers = $(shell ls -1 compilers/*)
 mans = $(shell ls -1 man/*)
 
 all:
+	$(MAKE) -C python
 
 .PHONY:
 install: .PHONY
@@ -30,6 +32,11 @@ install: .PHONY
 	install -d $(DESTDIR)/var/lib/lunar/functions
 	for F in $(core_LIBS) ; do \
 	  install -m0644 $$F $(DESTDIR)/var/lib/lunar/functions/ ; \
+	done
+	install -d $(DESTDIR)/var/lib/lunar/python
+	for F in $(python_LIBS); do \
+		install -m0644 $$F $(DESTDIR)/var/lib/lunar/python/ ; \
+		install -m0644 $${F}c $(DESTDIR)/var/lib/lunar/python/ ; \
 	done
 	install -d $(DESTDIR)/var/lib/lunar/plugins
 	for F in $(plug_LIBS) ; do \
