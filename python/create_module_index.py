@@ -32,7 +32,7 @@ def create_module_index():
     conn = sqlite3.connect(status_db)
     cursor = conn.cursor()
     cursor.execute("drop table if exists module_index")
-    cursor.execute("create table module_index (package text, location text, version text, updated text)")
+    cursor.execute("create table module_index (package text primary key, location text, version text, updated text)")
     for rec in records:
         cursor.execute("insert into module_index values ( ?, ?, ?, ? )", rec)
     conn.commit()
