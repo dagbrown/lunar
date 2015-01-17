@@ -89,8 +89,8 @@ list_installed() {
   try_sqlite "$MODULE_STATUS" \
       "select distinct m.package
            from modules_states ms
-           inner join modules m on ms.module_id = m.rowid
-           inner join states s on ms.state_id = s.rowid
+           inner join modules m on ms.module = m.package
+           inner join states s on ms.state_id = s.id
            where s.name = 'installed'"
 }
 
@@ -525,42 +525,49 @@ create_module_status() {
 
         drop table if exists states;
         create table states (
+            id integer,
             name text primary key
         );
 
-        insert into states values ( 'installed' );
-        insert into states values ( 'held' );
-        insert into states values ( 'exiled' );
-        insert into states values ( 'enforced' );
+        insert into states values ( 1, 'installed' );
+        insert into states values ( 2, 'held' );
+        insert into states values ( 3, 'exiled' );
+        insert into states values ( 4, 'enforced' );
 
         drop table if exists modules_states;
 
         create table modules_states (
-            module_id integer,
-            state_id integer
+            module text,
+            state_id integer,
+            foreign key(module) references modules(package),
+            foreign key(state_id) references states(id)
         );
 
         drop table if exists depends_cache;
 
         create table depends_cache (
-            module_id integer,
-            dependency_id integer,
+            module text,
+            dependency text,
             required boolean,
             flags_for_active text,
             flags_for_not_active text,
-            reason text
+            reason text,
+            foreign key(module) references module_index(package),
+            foreign key(dependency) references module_index(package)
         );
 
         drop table if exists depends_status;
 
         create table depends_status (
-            module_id integer,
-            dependency_id integer,
+            module text,
+            dependency text,
             required boolean,
             active boolea,
             flags_for_active text,
             flags_for_not_active text,
-            updated boolean default true
+            updated boolean default true,
+            foreign key(module) references module_index(package),
+            foreign key(dependency) references module_index(package)
         );
 EOT
     touch $MODULE_STATUS $DEPENDS_STATUS $DEPENDS_STATUS_BACKUP
@@ -636,13 +643,13 @@ add_module_state() {
             where not exists (
                 select * from modules where package = '$1');
         insert into modules_states
-            select m.rowid, s.rowid
+            select m.package, s.id
                 from modules m, states s
                 where m.package = '$1' and s.name = '$2'
                 and not exists (
                     select * from modules_states ms
-                        inner join modules m on m.rowid = ms.module_id
-                        inner join states s on s.rowid = ms.state_id
+                        inner join modules m on m.package = ms.module
+                        inner join states s on s.id = ms.state_id
                         where m.package = '$1' and s.name = '$2');
         commit;"
 }
@@ -657,8 +664,8 @@ remove_module_state() {
 
   try_sqlite "$MODULE_STATUS" \
       "delete from modules_states
-       where module_id = ( select rowid from modules where package = '$1' )
-         and state_id = ( select rowid from states where name = '$2' )"
+       where module = '$1'
+         and state_id = ( select id from states where name = '$2' )"
 }
 
 
@@ -689,9 +696,8 @@ has_module_state() {
   [[ $(try_sqlite "$MODULE_STATUS" \
       "select count(*)
         from modules_states ms
-            inner join modules m on ms.module_id = m.rowid
-            inner join states s on ms.state_id = s.rowid
-            where s.name = '$2' and m.package = '$1'") -gt 0 ]]
+            inner join states s on ms.state_id = s.id
+            where s.name = '$2' and ms.module = '$1'") -gt 0 ]]
 }
 
 
@@ -704,9 +710,8 @@ get_module_state() {
   echo $(try_sqlite "$MODULE_STATUS" \
     "select s.name
         from modules_states ms
-            inner join modules m on ms.module_id = m.rowid
-            inner join states s on ms.state_id = s.rowid
-        where m.package = '$1'
+            inner join states s on ms.state_id = s.id
+        where ms.module = '$1'
             and s.name != '$2'") | tr ' ' ','
 }
 
@@ -778,8 +783,8 @@ list_expired_modules() {
     inner join module_index i on m.package = i.package
     where m.date < i.updated and not (
         select count(*) from modules_states
-        where module_id = m.rowid and state_id = (
-            select rowid from states where name = "held" ) )'
+        where module = m.package and state_id = (
+            select id from states where name = "held" ) )'
 }
 
 

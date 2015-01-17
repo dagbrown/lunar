@@ -55,7 +55,7 @@ migrate_module_status() {
         for state
         do
             echo 'insert into modules_states '
-            echo "    select modules.rowid, states.rowid"
+            echo "    select modules.package, states.id"
             echo "        from modules, states"
             echo "        where modules.package = '$package' and"
             echo "        states.name = '$state';"
@@ -66,8 +66,8 @@ migrate_module_status() {
     do
         reason=$(echo "$reason" | sed "s/'/''/g")
         echo "insert into depends_cache values ("
-        echo "    ( select rowid from module_index where package = '$package' ),"
-        echo "    ( select rowid from module_index where package = '$dependency' ),"
+        echo "    '$package',"
+        echo "    '$dependency',"
         if [[ $required == required ]]
         then
             echo "    1,"
@@ -82,8 +82,8 @@ migrate_module_status() {
     while read package dependency active required flags_yes flags_no
     do
         echo "insert into depends_status values ("
-        echo "    ( select rowid from module_index where package = '$package' ),"
-        echo "    ( select rowid from module_index where package = '$dependency' ),"
+        echo "    $package",
+        echo "    $dependency",
         if [[ $active == on ]]
         then
             echo "    1,"

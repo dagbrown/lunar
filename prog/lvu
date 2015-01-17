@@ -1262,7 +1262,7 @@ main()  {
           sqlite3 -separator : "$MODULE_STATUS" "
             select m.package, m.date, s.name, m.version, m.size
                 from modules_states ms
-                    inner join modules m on ms.module_id = m.rowid
+                    inner join modules m on ms.module = m.package
                     inner join states s on ms.state_id = s.rowid
                 where s.name in ('installed', 'held')" | view_file
         # grep -E '[:+](installed|held)[:+]' "$MODULE_STATUS" | view_file
@@ -1278,7 +1278,7 @@ main()  {
       sqlite3 -separator : "$MODULE_STATUS" "
         select m.package
             from modules_states ms
-                inner join modules m on ms.module_id = m.rowid
+                inner join modules m on ms.module = m.package
                 inner join states s on ms.state_id = s.rowid
             where s.name = 'held'"
       ;;
@@ -1287,7 +1287,7 @@ main()  {
       sqlite3 -separator : "$MODULE_STATUS" "
         select m.package
             from modules_states ms
-                inner join modules m on ms.module_id = m.rowid
+                inner join modules m on ms.module = m.package
                 inner join states s on ms.state_id = s.rowid
             where s.name = 'exiled'"
       ;;
@@ -1296,7 +1296,7 @@ main()  {
       sqlite3 -separator : "$MODULE_STATUS" "
         select m.package
             from modules_states ms
-                inner join modules m on ms.module_id = m.rowid
+                inner join modules m on ms.module = m.package
                 inner join states s on ms.state_id = s.rowid
             where s.name = 'enforced'"
       ;;
