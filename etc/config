@@ -22,6 +22,7 @@ export        DIALOGRC=/etc/lunar/dialogrc
              PROTECTED=/var/lib/lunar/protected
                   SOLO=/var/lib/lunar/solo
              FUNCTIONS=/var/lib/lunar/functions
+                PYTHON=/var/lib/lunar/python
                  MENUS=/var/lib/lunar/menu
              SUSTAINED=/var/lib/lunar/sustained
             PLUGIN_DIR=/var/lib/lunar/plugins
