@@ -68,8 +68,8 @@ function find_depends() {
         echo "$DEP" >> $TMP_FDEPS
         local required
         required=$(try_sqlite $MODULE_STATUS "
-            select count(*) from depends_cache where
-                module = '$1' and dependency = '$DEP'
+            select count(*) from depends_cache
+                where module = '$1' and dependency = '$DEP'
                 and required = 1")
         if [[ $required > 0 ]]
         then
@@ -257,8 +257,8 @@ run_depends() {
         echo "$DEP" >> $TEMP_PREPAREDDEPS
       fi
     elif [ $(try_sqlite $MODULE_STATUS "
-               select count(*) from depends_status where
-                   module = '$MODULE' and dependency = '$DEP'") == 0 ]
+               select count(*) from depends_status
+                   where module = '$MODULE' and dependency = '$DEP'") == 0 ]
     then
       if module_exiled $DEP ; then
         verbose_msg "\"$MODULE\" optionally depends on exiled module \"$DEP\""
@@ -544,7 +544,7 @@ update_module_depends()
 
     if [ $(try_sqlite $MODULE_STATUS "
         select count(*) > 0 from depends_status
-            module = '$MODULE' and dependency = '$DEP'
+            where module = '$MODULE' and dependency = '$DEP'
             and required = 0") == 1 ]
     then
         try_sqlite $MODULE_STATUS "
