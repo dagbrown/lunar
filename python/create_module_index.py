@@ -3,6 +3,7 @@
 import os
 import sqlite3
 import re
+import sys
 
 moonbase=os.environ["MOONBASE"]
 
@@ -24,17 +25,20 @@ def create_module_index():
     tot=len(details)
     for mod in details:
         records.append(index_record(mod))
-        print "({}/{})\r".format(i,tot),
+        sys.stderr.write("({}/{})\r".format(i,tot))
         i = i + 1
     # records = [ index_record(mod) for mod in details]
-    print
+    sys.stderr.write("\n");
 
     conn = sqlite3.connect(status_db)
     cursor = conn.cursor()
     cursor.execute("drop table if exists module_index")
     cursor.execute("create table module_index (package text primary key, location text, version text, updated text)")
     for rec in records:
-        cursor.execute("insert into module_index values ( ?, ?, ?, ? )", rec)
+        try:
+            cursor.execute("insert into module_index values ( ?, ?, ?, ? )", rec)
+        except sqlite3.IntegrityError: # ignore duplicates
+            pass
     conn.commit()
     conn.close()
 
@@ -63,5 +67,5 @@ def installed_version(mod):
     return version
 
 if __name__ == '__main__':
-    print "Creating module index..."
+    sys.stderr.write("Creating module index...\n");
     create_module_index()
