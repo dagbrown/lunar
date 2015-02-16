@@ -102,6 +102,8 @@ create_module_index() {
     (
         export MOONBASE
         export MODULE_STATUS
+        export INSTALL_LOGS
+        export PYTHONPATH=/var/lib/lunar/python
 
         python $PYTHON/create_module_index.py
     )
