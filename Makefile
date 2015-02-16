@@ -8,6 +8,7 @@ plug_LIBS = $(shell ls -1 plugins/*)
 core_LIBS = $(shell ls -1 libs/*)
 menu_LIBS = $(shell ls -1 menu/*)
 python_LIBS = $(shell ls -1 python/*.py)
+python_SHARED_LIBS = $(shell ls -1 python/*.so)
 
 etc = etc/config etc/dialogrc
 mirrors = $(shell ls -1 mirrors/*)
@@ -37,6 +38,9 @@ install: .PHONY
 	for F in $(python_LIBS); do \
 		install -m0644 $$F $(DESTDIR)/var/lib/lunar/python/ ; \
 		install -m0644 $${F}c $(DESTDIR)/var/lib/lunar/python/ ; \
+	done
+	for F in $(python_SHARED_LIBS); do \
+		install -m0755 $$F $(DESTDIR)/var/lib/lunar/python ;
 	done
 	install -d $(DESTDIR)/var/lib/lunar/plugins
 	for F in $(plug_LIBS) ; do \
