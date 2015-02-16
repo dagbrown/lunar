@@ -625,7 +625,7 @@ add_module()  {
       "update modules
           set version = '$3',
               date = '$datestamp',
-              size = $4
+              size = '$4'
           where package = '$1';"
   add_module_state $1 $2
 }
