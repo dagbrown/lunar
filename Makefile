@@ -40,7 +40,7 @@ install: .PHONY
 		install -m0644 $${F}c $(DESTDIR)/var/lib/lunar/python/ ; \
 	done
 	for F in $(python_SHARED_LIBS); do \
-		install -m0755 $$F $(DESTDIR)/var/lib/lunar/python ;
+		install -m0755 $$F $(DESTDIR)/var/lib/lunar/python ;  \
 	done
 	install -d $(DESTDIR)/var/lib/lunar/plugins
 	for F in $(plug_LIBS) ; do \
