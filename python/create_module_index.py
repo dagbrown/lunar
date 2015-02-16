@@ -41,7 +41,7 @@ def create_module_index():
     cursor.execute("create table module_index (package text primary key, location text, version text, updated text)")
     for rec in records:
         try:
-            cursor.executemany("insert into module_index values ( ?, ?, ?, ? )", records)
+            cursor.execute("insert into module_index values ( ?, ?, ?, ? )", rec)
         except sqlite3.IntegrityError: # ignore duplicates
             pass
     pkgdb.db.commit()
