@@ -42,31 +42,8 @@ class PkgDB:
             cursor.execute("update timestamps set time = current_timestamp where name = ?", (name,))
         self.db.commit()
 
-    def compare_timestamps(self, name1, name2):
-        cursor = self.db.cursor()
-
-        cursor.execute("""
-            select (
-                select time from timestamps where name = ?
-            ) > (
-                select time from timestamps where name = ?
-            )
-        """, (name1, name2) )
-
-        if cursor.fetchone()[0] == 1:
-            return 1
-        else:
-            cursor.execute("""
-                select (
-                    select time from timestamps where name = ?
-                ) < (
-                    select time from timestamps where name = ?
-                )
-            """, (name1, name2) )
-            if cursor.fetchone()[0] == 1:
-                return -1
-            else:
-                return 0
+    def timestamp(self, name):
+        return time.strptime(pkgdb.query1("select time from timestamps where name = ?", name)[0], "%Y-%m-%d %H:%M:%S")
 
 pkgdb=PkgDB()
 
