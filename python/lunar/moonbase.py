@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
 import os
-from pkgdb import pkgdb
-from config import config
-from modules import Module
+from lunar.pkgdb import pkgdb
+from lunar.config import config
+from lunar.modules import Module
 
 class GetOutOfLoop(exception):
   pass

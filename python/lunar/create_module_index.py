@@ -4,7 +4,7 @@ import os
 import sqlite3
 import re
 import sys
-from pkgdb import pkgdb
+from lunar.pkgdb import pkgdb
 
 if os.environ.has_key("MOONBASE"):
     moonbase = os.environ["MOONBASE"]
