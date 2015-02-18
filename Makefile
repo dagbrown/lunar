@@ -7,7 +7,7 @@ sbin_PROGS = prog/lin prog/lrm prog/lunar prog/lget
 plug_LIBS = $(shell ls -1 plugins/*)
 core_LIBS = $(shell ls -1 libs/*)
 menu_LIBS = $(shell ls -1 menu/*)
-python_LIBS = $(shell ls -1 python/*.py)
+python_LIBS = $(shell ls -1 python/lunar/*.py)
 python_SHARED_LIBS = $(shell ls -1 python/*.so)
 
 etc = etc/config etc/dialogrc
@@ -34,13 +34,13 @@ install: .PHONY
 	for F in $(core_LIBS) ; do \
 	  install -m0644 $$F $(DESTDIR)/var/lib/lunar/functions/ ; \
 	done
-	install -d $(DESTDIR)/var/lib/lunar/python
+	install -d $(DESTDIR)/usr/lib/python2.7/site-packages/lunar
 	for F in $(python_LIBS); do \
-		install -m0644 $$F $(DESTDIR)/var/lib/lunar/python/ ; \
-		install -m0644 $${F}c $(DESTDIR)/var/lib/lunar/python/ ; \
+		install -m0644 $$F $(DESTDIR)/usr/lib/python2.7/site-packages/lunar; \
+		install -m0644 $${F}c $(DESTDIR)/usr/lib/python2.7/site-packages/lunar; \
 	done
 	for F in $(python_SHARED_LIBS); do \
-		install -m0755 $$F $(DESTDIR)/var/lib/lunar/python ;  \
+		install -m0755 $$F $(DESTDIR)/usr/lib/python2.7/site-packages ;  \
 	done
 	install -d $(DESTDIR)/var/lib/lunar/plugins
 	for F in $(plug_LIBS) ; do \

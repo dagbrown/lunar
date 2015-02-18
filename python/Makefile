@@ -1,10 +1,9 @@
+all: lunar wordexp.so
 
-python_files=$(shell ls -1 *.py)
+.PHONY: lunar
 
-all: wordexp.so
-	for file in $(python_files); do \
-		python -m py_compile $$file; \
-	done
+lunar: 
+	$(MAKE) -C lunar
 
 wordexp.so: wordexp.o
 	gcc -pthread -shared -Wl,-O1 wordexp.o -L/usr/lib -lpython2.7 -o wordexp.so
