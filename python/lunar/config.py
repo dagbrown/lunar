@@ -4,33 +4,11 @@ from wordexp import wordexp
 import re
 import os
 
-#               DEFAULT="\e[0m"
-#                  BOLD="\e[1m"
-#                 BLACK="\e[30m"
-#                   RED="\e[31m"
-#                 GREEN="\e[32m"
-#                YELLOW="\e[33m"
-#                  BLUE="\e[34m"
-#                VIOLET="\e[35m"
-#                  CYAN="\e[36m"
-#                 WHITE="\e[37m"
-#
-#          MODULE_COLOR="${WHITE}${BOLD}\e[40m"
-#         VERSION_COLOR="${WHITE}${BOLD}\e[40m"
-#           QUERY_COLOR="${YELLOW}${BOLD}"
-#             LRM_COLOR="${YELLOW}${BOLD}"
-#           CHECK_COLOR="${CYAN}"
-#       RESURRECT_COLOR="${GREEN}${BOLD}"
-#            FILE_COLOR="${GREEN}${BOLD}"
-#         SYMLINK_COLOR="${CYAN}${BOLD}"
-#         PROBLEM_COLOR="${RED}${BOLD}"
-#         MESSAGE_COLOR="${CYAN}"
-#         DEFAULT_COLOR="${DEFAULT}"
+# from /etc/lunar/config
 #
 #         TAB_ENTER_IFS=$'\t\n'
 #         ENTER_IFS=$'\n'
 #         STANDARD_IFS=$' \t\n'
-
 
 class Config:
   defaults = {
