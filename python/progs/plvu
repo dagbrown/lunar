@@ -1,0 +1,136 @@
+#!/usr/bin/python
+
+from lunar import moonbase, modules
+import argparse
+
+def helpscreen():
+  print """
+LVU -- Lunar View utility (for viewing just about everything in Lunar-Linux)
+
+Usage:      lvu [general options] [command [command parameters]]
+
+GENERAL OPTIONS:
+
+-d  |  --debug                  Enables debug messages
+-h  |  --help                   Displays this help text
+-v  |  --verbose                Increases the level of message output
+
+Commands:
+
+Invoke lvu with desired command followed by arguments.
+Please note that anything in brackets [ ] is optional.
+
+Command     Arguments      Description
+
+what        module         display a module's description
+short       module         display a module's short description
+where       module         display a module's section
+cd          module         change directory to module and execs a new shell
+alien                      discover untracked files
+from        path/file      discover what installed a given file
+leafs                      display installed modules that have no explicit
+                               dependencies on them
+orphans                    display installed modules that are missing
+                               dependencies
+conflicts                  display conflicting files
+moonalyze                  analyze the current moonbase for common issues
+held                       display held modules
+exiled                     display exiled modules
+enforced                   display enforced modules
+expired                    display a list of modules which need an update
+info        module         display terse summary information about module
+
+search      "phrase"       searches all modules long descriptions for phrase.
+service     port|acronym   displays modules that provide that service
+
+website     module         display a module's website
+install     module         display an install log
+size        [module]       find and show installed size of a module
+                               or ALL (slow)
+installed   [module]       display installed modules/version of module
+missing                    display installed but deleted modules from moonbase
+compile     module         display a compile log
+compiler    module         display the compiler version used
+links       module         display a list of modules that this module links to
+sources     [module]       display source files for a module
+urls        [module]       display all URLs for a module
+maintainer  module         display maintainer for a module
+version     module         display version of module in moonbase
+
+new         module         attempt to create a new module from scratch
+edit        module         copy a module to zlocal for editing
+diff        module         view changes on edited module
+submit      module         attempt to submit a module to the lunar ML
+unedit      module         delete zlocal copy of a module
+
+sum         [module]       display checksums
+md5sum      [module]       display md5sums
+
+export                     make snapshot of box's configuration.
+import      snapshot       restores an exported snapshot.
+
+section     [section]      display moonbase sections
+moonbase                   display text listing of the moonbase
+html                       display html listing of the moonbase
+updatelog                  display summary log of previous lunar update
+activity    [module]       display main log file
+
+newer       20030801       display available modules newer than Aug 01, 2003
+older       20030101       display modules installed before Jan 01, 2003
+
+voyeur      [delay|module] peak into module compilation
+
+pam                        display installed modules that are Linux-PAM aware
+
+depends     module         displays installed modules that explicitly or
+                               recursively depend on this module.
+tree        module         displays a tree of the module's dependencies
+stree       module         same as 'tree' but highly abbreviated
+eert        module         same as 'tree' but reverse and installed deps only
+leert       module         full reverse dependency tree
+
+$MODULE_SCRIPT module      will print the module script for that module
+"""
+
+def installed(mod=None):
+    if mod is None:
+      return helpscreen()
+    try:
+      m = modules.Module(mod)
+    except modules.NonexistentModuleError:
+      print "{} does not exist".format(mod)
+      return
+
+    if m.installed():
+      print m.installed_version()
+    else:
+      print "{} is not installed".format(mod)
+
+def expired(mod=None):
+  """
+  display a list of modules which need an update
+  """
+  for mod in moonbase.list_expired():
+    m = modules.Module(mod)
+    try:
+      print "{} ({} -> {})".format(mod, m.installed_version(), m.version)
+    except RuntimeError:
+      print "processing of DETAILS for {} failed!".format(mod)
+
+commands = { "expired" : expired, "installed" : installed }
+
+parser = argparse.ArgumentParser()
+parser.add_argument("command", nargs = "?")
+parser.add_argument("module", nargs = "?")
+args = parser.parse_args()
+
+# print args
+
+if args.command is None:
+  helpscreen()
+else:
+  if args.command in commands.keys():
+    if args.module is not None:
+      commands[args.command](args.module)
+    else:
+      commands[args.command]()
