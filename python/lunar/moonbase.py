@@ -6,6 +6,7 @@ from lunar.config import config
 from lunar.modules import Module
 
 class GetOutOfLoop(exception):
+  """ Exception used because Python can't do multi-level breaks """
   pass
 
 if os.environ.has_key("MOONBASE"):
@@ -58,6 +59,19 @@ def list_installed():
            inner join modules m on ms.module = m.package
            inner join states s on ms.state_id = s.id
            where s.name = 'installed'""")]
+
+def list_expired():
+  """ Return a list of all modules that have been expired """
+  # You could always instantiate a Module object for every module and
+  # ask it whether it's expired or not, but trolling the database is
+  # almost certainly quicker.
+  return [t[0] for t in pkgdb.query("""
+    select m.package from modules m
+      inner join module_index i on m.package = i.package
+      where m.date < i.updated and not (
+        select count(*) from modules_states
+        where module = m.package and state_id = (
+          select id from states where name = "held" ) )"""])
 
 def create_module_index():
   """ Creates an index table of module|section|version|updated """
@@ -140,6 +154,3 @@ def check_module_index():
             raise GetOutOfLoop
   except GetOutOfLoop:
     pass
-
-def create_depends_cache():
-  pass
