@@ -5,7 +5,7 @@ from lunar.pkgdb import pkgdb
 from lunar.config import config
 from lunar.modules import Module
 
-class GetOutOfLoop(exception):
+class GetOutOfLoop(Exception):
   """ Exception used because Python can't do multi-level breaks """
   pass
 
@@ -65,13 +65,13 @@ def list_expired():
   # You could always instantiate a Module object for every module and
   # ask it whether it's expired or not, but trolling the database is
   # almost certainly quicker.
-  return [t[0] for t in pkgdb.query("""
+  return [ t[0] for t in pkgdb.query("""
     select m.package from modules m
       inner join module_index i on m.package = i.package
       where m.date < i.updated and not (
         select count(*) from modules_states
         where module = m.package and state_id = (
-          select id from states where name = "held" ) )"""])
+          select id from states where name = "held" ) )""") ]
 
 def create_module_index():
   """ Creates an index table of module|section|version|updated """
