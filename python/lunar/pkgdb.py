@@ -2,6 +2,7 @@
 
 import sqlite3 as sqlite
 import os
+from time import strptime
 
 if os.environ.has_key("MODULE_STATUS"):
     status_db = os.environ["MODULE_STATUS"]
@@ -43,7 +44,12 @@ class PkgDB:
         self.db.commit()
 
     def timestamp(self, name):
-        return time.strptime(pkgdb.query1("select time from timestamps where name = ?", name)[0], "%Y-%m-%d %H:%M:%S")
+        query_result = pkgdb.query1("""
+            select time from timestamps
+            where name = ?
+        """, name)
+        if query_result is not None:
+            return strptime(query_result[0], "%Y-%m-%d %H:%M:%S")
 
 pkgdb=PkgDB()
 
