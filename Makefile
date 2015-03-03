@@ -9,6 +9,7 @@ core_LIBS = $(shell ls -1 libs/*)
 menu_LIBS = $(shell ls -1 menu/*)
 python_LIBS = $(shell ls -1 python/lunar/*.py)
 python_SHARED_LIBS = $(shell ls -1 python/*.so)
+python_PROGS=python/progs/plvu
 
 etc = etc/config etc/dialogrc
 mirrors = $(shell ls -1 mirrors/*)
@@ -41,6 +42,9 @@ install: .PHONY
 	done
 	for F in $(python_SHARED_LIBS); do \
 		install -m0755 $$F $(DESTDIR)/usr/lib/python2.7/site-packages ;  \
+	done
+	for F in $(python_PROGS); do \
+		install -m0755 $$F $(DESTDIR)/bin; \
 	done
 	install -d $(DESTDIR)/var/lib/lunar/plugins
 	for F in $(plug_LIBS) ; do \
