@@ -12,6 +12,9 @@ if os.environ.has_key("MOONBASE"):
 else:
   moonbase = "/var/lib/lunar/moonbase"
 
+class NonexistentModuleError(Exception):
+  pass
+
 class Module:
   def __init__(self, name = ""):
     """ Creates a Module object and grabs its details from its DETAILS file """
@@ -95,7 +98,10 @@ class Module:
         if config[candidate] is not None:
           os.environ[candidate] = config[candidate]
           deletethese += [ candidate ]
-    returnval = wordexp(text)[0]
+    try:
+        returnval = wordexp(text)[0]
+    except RuntimeError:
+        returnval = text
     for d in deletethese:
       del os.environ[d]
     return returnval
@@ -103,30 +109,34 @@ class Module:
   def run_details(self):
     """ Loads up the values defined in the module's DETAILS file """
     self.details={}
-    fullpath = os.path.join(moonbase,
-        self.section(),
-        self.name,
-        "DETAILS")
-    description_flag=False
-    self.description = ""
-    lines=file(fullpath, "r").read().split("\n")
-    for line in lines:
-      if re.search('^ *$',line):
-        continue
-      if re.search('^ *#', line):
-        continue
-      if description_flag and line != "EOF":
-        self.description += "\n" + line
-      if description_flag and line == "EOF":
-        self.description += "\n"
-        description_flag = False
-      if re.search("cat *\<\< *EOF$", line):
-        description_flag=True
-      try:
-        line.index("=")
-        variable, value = line.split("=", 1)
-        variable=wordexp(variable)[0]
-        value = self._expand_params(value)
-        self.details[variable] = value
-      except ValueError:
-        pass
+    section = self.section()
+    if section is not None:
+      fullpath = os.path.join(moonbase,
+          self.section(),
+          self.name,
+          "DETAILS")
+      description_flag=False
+      self.description = ""
+      lines=file(fullpath, "r").read().split("\n")
+      for line in lines:
+        if re.search('^ *$',line):
+          continue
+        if re.search('^ *#', line):
+          continue
+        if description_flag and line != "EOF":
+          self.description += "\n" + line
+        if description_flag and line == "EOF":
+          self.description += "\n"
+          description_flag = False
+        if re.search("cat *\<\< *EOF$", line):
+          description_flag=True
+        try:
+          line.index("=")
+          variable, value = line.split("=", 1)
+          variable=wordexp(variable)[0]
+          value = self._expand_params(value)
+          self.details[variable] = value
+        except ValueError:
+          pass
+    else:
+      raise NonexistentModuleError
