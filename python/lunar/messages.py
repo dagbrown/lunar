@@ -94,6 +94,9 @@ def debug_message(*args):
   # if LUNAR_DEBUG > 5, it goes to a log file with a massive dump
   # of the entire configuration.  Do that later
 
+def verbose_msg(*args):
+    pass  # TODO
+
 def query(question, default = "n", module = None):
   """
   Asks a yes/no query.  If the config flag SILENT is set, always
