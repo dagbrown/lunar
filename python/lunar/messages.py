@@ -33,9 +33,11 @@ from sys import stdin, stdout, stderr
 from select import select
 from lunar.config import config
 import inspect
+import subprocess
+import os
 
 # ANSI color escape sequences
-colors = [ "black", "red", "green", "yellow", 
+colors = [ "black", "red", "green", "yellow",
            "blue", "violet", "cyan", "white" ]
 
 def foreground(color):
@@ -128,3 +130,27 @@ def query(question, default = "n", module = None):
       return False
     raise TypeError
 
+def view_file(file=None):
+  if os.environ.has_key("PAGER"):
+    pager = os.environ["PAGER"]
+  else:
+    pager = "less"
+
+  if file is not None:
+   output=subprocess.check_output(["file", file])
+   type=output.split(": ")[1].split(" ")[0]
+   if type == "XZ":
+     decompressor = "xzcat"
+   else:
+     if type == "gzip":
+       decompressor = "zcat"
+     else:
+       if type == "bzip2":
+         decompressor = "bzcat"
+       else:
+         return subprocess.call([pager, file])
+
+   decompressed = subprocess.Popen( [ decompressor, file ], stdout=subprocess.PIPE )
+   ( stdoutdata, stderrdata ) = decompressed.communicate()
+   pager = subprocess.Popen( [ pager ], stdin = subprocess.PIPE )
+   pager.communicate(stdoutdata)
