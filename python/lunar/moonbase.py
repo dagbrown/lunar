@@ -9,23 +9,18 @@ class GetOutOfLoop(Exception):
   """ Exception used because Python can't do multi-level breaks """
   pass
 
-if os.environ.has_key("MOONBASE"):
-    moonbase = os.environ["MOONBASE"]
-else:
-    moonbase = config["MOONBASE"]
-
 def list_sections():
   """ Return a list of all the moonbase's sections """
   check_module_index()
 
   sections = [t[0] for t in pkgdb.query("select distinct(location) from module_index")]
   
-  for root, dirs, files in os.walk(os.path.join(moonbase, "zlocal")):
+  for root, dirs, files in os.walk(os.path.join(config["MOONBASE"], "zlocal")):
     for f in files:
       if f == "DETAILS":
         print dirs
         print root
-        sections.append(re.subst("^"+moonbase+"/","",os.path.dirname(root)))
+        sections.append(re.subst("^"+config["MOONBASE"]+"/","",os.path.dirname(root)))
   sections=list(set(sections))
   sections.sort()
 
@@ -35,7 +30,7 @@ def list_modules(section):
   """ Return a list of all modules in a specific section """
   modules = [ t[0] for t in pkgdb.query("select package from module_index where location = ?", section) ]
   if len(modules) == 0:
-    for root, dirs, files in os.walk(os.path.join(moonbase, section)):
+    for root, dirs, files in os.walk(os.path.join(config["MOONBASE"], section)):
       for f in files:
         if f == "DETAILS":
           modules.append(os.path.basename(root))
@@ -76,13 +71,13 @@ def list_expired():
 def create_module_index():
   """ Creates an index table of module|section|version|updated """
   details = []
-  if moonbase == "/var/lib/lunar/moonbase":
+  if config["MOONBASE"] == "/var/lib/lunar/moonbase":
     fh = file(os.environ["INSTALL_LOGS"]+"/moonbase-"+Module("moonbase").installed_version())
     for line in fh.read().split("\n"):
       if re.search('DETAILS$', line):
         details.append(line)
   else: # go spelunking around someone's custom moonbase
-    for root, dirs, files in os.walk(moonbase):
+    for root, dirs, files in os.walk(config["MOONBASE"]):
       for f in files:
         if f == "DETAILS":
           details.append(os.path.join(root, f))
@@ -123,7 +118,7 @@ def index_record(details):
       if name == "UPDATED":
         updated = value
   mod = os.path.basename(os.path.dirname(details))
-  location = os.path.dirname(os.path.dirname(details)).replace(moonbase + "/", "")
+  location = os.path.dirname(os.path.dirname(details)).replace(config["MOONBASE"] + "/", "")
   return (mod, location, version, updated)
 
 def check_module_index():
@@ -135,7 +130,7 @@ def check_module_index():
   module_index_timestamp = pkgdb.timestamp("module_index")
   depends_cache_timestamp = pkgdb.timestamp("depends_cache")
   try:
-    for root, dirs, files in os.walk(moonbase):
+    for root, dirs, files in os.walk(config["MOONBASE"]):
       for f in files:
         if f == "DETAILS":
           stat=os.stat(os.path.join(root,f))
@@ -145,7 +140,7 @@ def check_module_index():
   except GetOutOfLoop:
     pass
   try:
-    for root, dirs, files in os.walk(moonbase):
+    for root, dirs, files in os.walk(config["MOONBASE"]):
       for f in files:
         if f == "DETAILS":
           stat=os.stat(os.path.join(root,f))
