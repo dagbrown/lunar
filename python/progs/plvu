@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from lunar import moonbase, modules
+from lunar.messages import *
 import argparse
 
 def helpscreen():
@@ -92,15 +93,39 @@ leert       module         full reverse dependency tree
 $MODULE_SCRIPT module      will print the module script for that module
 """
 
-def installed(mod=None):
+def _get_module_details(mod=None):
     if mod is None:
-      return helpscreen()
+        return helpscreen()
     try:
-      m = modules.Module(mod)
+        m = modules.Module(mod)
     except modules.NonexistentModuleError:
-      print "{} does not exist".format(mod)
-      return
+        print "{} does not exist".format(mod)
+        return
+    return m
 
+def version(mod):
+  m = _get_module_details(mod)
+  if m is not None:
+    print m.version
+
+def what(mod):
+  m = _get_module_details(mod)
+  if m is not None:
+    print m.description
+
+def short(mod):
+  m = _get_module_details(mod)
+  if m is not None:
+    print m.details["SHORT"]
+
+def where(mod):
+  m = _get_module_details(mod)
+  if m is not None:
+    print m.section()
+
+def installed(mod):
+  m = _get_module_details(mod)
+  if m is not None:
     if m.installed():
       print m.installed_version()
     else:
@@ -117,7 +142,13 @@ def expired(mod=None):
     except RuntimeError:
       print "processing of DETAILS for {} failed!".format(mod)
 
-commands = { "expired" : expired, "installed" : installed }
+commands = { "expired" : expired,
+             "installed:" : installed,
+             "short:" : short,
+             "what:" : what,
+             "where:" : where,
+             "version:" : version
+           }
 
 parser = argparse.ArgumentParser()
 parser.add_argument("command", nargs = "?")
@@ -129,8 +160,15 @@ args = parser.parse_args()
 if args.command is None:
   helpscreen()
 else:
-  if args.command in commands.keys():
+  if args.module is not None:
+    command = args.command + ":"
+  else:
+    command = args.command
+
+  if command in commands.keys():
     if args.module is not None:
-      commands[args.command](args.module)
+      commands[command](args.module)
     else:
-      commands[args.command]()
+      commands[command]()
+  else:
+    helpscreen()
