@@ -2,16 +2,12 @@
 
 import sqlite3 as sqlite
 import os
+from lunar.config import config
 from time import strptime
-
-if os.environ.has_key("MODULE_STATUS"):
-    status_db = os.environ["MODULE_STATUS"]
-else:
-    status_db = "/var/state/lunar/packages.db"
 
 class PkgDB:
     def __init__(self):
-        self.db = sqlite.connect(status_db)
+        self.db = sqlite.connect(config["MODULE_STATUS"])
 
     def query(self, query, *params):
         cursor = self.db.cursor()
