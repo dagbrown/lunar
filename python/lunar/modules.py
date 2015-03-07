@@ -3,6 +3,7 @@
 import os
 import re
 import sys
+import string
 from lunar.pkgdb import pkgdb
 from wordexp import wordexp
 from lunar.config import config
@@ -11,7 +12,7 @@ class NonexistentModuleError(Exception):
   pass
 
 class Module:
-  def __init__(self, name = ""):
+  def __init__(self, name, details=True):
     """ Creates a Module object and grabs its details from its DETAILS file """
     self.name = name
     results = pkgdb.query1("""
@@ -22,7 +23,8 @@ class Module:
       (self.location, self.version, self.updated) = results
     else:
       (self.location, self.version, self.updated) = (None, None, None)
-    self.run_details()
+    if details:
+      self.run_details()
 
   def _has_state(self, statename):
     """ Check to see if a module has a specific state """
@@ -74,6 +76,13 @@ class Module:
           if self.name in dirs and os.path.exists(os.path.join(root, self.name, "DETAILS")):
             return string.replace(root, config["MOONBASE"], "")
 
+  def install_log(self):
+    logpath = os.path.join(config["INSTALL_LOGS"], "{}-{}".format(self.name,self.installed_version()))
+    try:
+      return file(logpath).read()
+    except IOError:
+      return ""
+
   def _expand_params(self,text):
     """ Expands potential variables in a candidate string """
     candidates = re.findall(r"\${?(\w+)", text)
@@ -98,7 +107,8 @@ class Module:
     except RuntimeError:
         returnval = text
     for d in deletethese:
-      del os.environ[d]
+      if os.environ.has_key(d):
+        del os.environ[d]
     return returnval
 
   def run_details(self):
@@ -112,6 +122,7 @@ class Module:
           "DETAILS")
       description_flag=False
       self.description = ""
+      print fullpath
       lines=file(fullpath, "r").read().split("\n")
       for line in lines:
         if re.search('^ *$',line):
