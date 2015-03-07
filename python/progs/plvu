@@ -103,6 +103,12 @@ def _get_module_details(mod=None):
         return
     return m
 
+def cd(mod):
+  m = _get_module_details(mod)
+  if m is not None:
+    os.chdir(os.path.join(config["MOONBASE"], m.section(), mod))
+    os.system(os.environ["SHELL"])
+
 def version(mod):
   m = _get_module_details(mod)
   if m is not None:
@@ -142,13 +148,15 @@ def expired(mod=None):
     except RuntimeError:
       print "processing of DETAILS for {} failed!".format(mod)
 
-commands = { "expired" : expired,
-             "installed:" : installed,
-             "short:" : short,
-             "what:" : what,
-             "where:" : where,
-             "version:" : version
-           }
+commands = {
+    "what:"       : what,
+    "short:"      : short,
+    "where:"      : where,
+    "cd:"         : cd,
+    "expired"     : expired,
+    "installed:"  : installed,
+    "version:"    : version,
+}
 
 parser = argparse.ArgumentParser()
 parser.add_argument("command", nargs = "?")
