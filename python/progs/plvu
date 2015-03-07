@@ -133,6 +133,22 @@ def cd(mod):
     os.chdir(os.path.join(config["MOONBASE"], m.section(), mod))
     os.system(os.environ["SHELL"])
 
+def lvu_from(filename):
+  """ Tell what module a file is from """
+  mods = moonbase.list_installed()
+  for mod in mods:
+    try:
+      mod_obj = modules.Module(mod, False)
+      install_log = mod_obj.install_log()
+      if install_log is not None:
+        if filename in install_log:
+          filenames = install_log.split("\n")
+          for fn in filenames:
+            if filename in fn:
+              print "{}:{}".format(mod_obj.name, fn)
+    except modules.NonexistentModuleError:
+      pass
+
 def expired(mod=None):
   """ Display a list of modules which are out of date """
   for mod in moonbase.list_expired():
@@ -172,6 +188,7 @@ commands = {
     "short:"      : short,
     "where:"      : where,
     "cd:"         : cd,
+    "from:"       : lvu_from,
     "expired"     : expired,
     "installed:"  : installed,
     "installed"   : installed_all,
