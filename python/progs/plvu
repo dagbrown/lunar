@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from lunar import moonbase, modules
+from lunar.pkgdb import pkgdb
 from lunar.messages import *
 import argparse
 
@@ -94,6 +95,10 @@ $MODULE_SCRIPT module      will print the module script for that module
 """
 
 def _get_module_details(mod=None):
+    """
+    Return module object with details filled in, or None if module
+    doesn't exist
+    """
     if mod is None:
         return helpscreen()
     try:
@@ -103,33 +108,42 @@ def _get_module_details(mod=None):
         return
     return m
 
-def cd(mod):
-  m = _get_module_details(mod)
-  if m is not None:
-    os.chdir(os.path.join(config["MOONBASE"], m.section(), mod))
-    os.system(os.environ["SHELL"])
-
-def version(mod):
-  m = _get_module_details(mod)
-  if m is not None:
-    print m.version
-
 def what(mod):
+  """ Print out the description of the module """
   m = _get_module_details(mod)
   if m is not None:
     print m.description
 
 def short(mod):
+  """ Print out the short summary of the module """
   m = _get_module_details(mod)
   if m is not None:
     print m.details["SHORT"]
 
 def where(mod):
+  """ Print out where in the moonbase the module is located """
   m = _get_module_details(mod)
   if m is not None:
     print m.section()
 
+def cd(mod):
+  """ Spawn a shell where the module is defined in the moonbase"""
+  m = _get_module_details(mod)
+  if m is not None:
+    os.chdir(os.path.join(config["MOONBASE"], m.section(), mod))
+    os.system(os.environ["SHELL"])
+
+def expired(mod=None):
+  """ Display a list of modules which are out of date """
+  for mod in moonbase.list_expired():
+    m = modules.Module(mod)
+    try:
+      print "{} ({} -> {})".format(mod, m.installed_version(), m.version)
+    except RuntimeError:
+      print "processing of DETAILS for {} failed!".format(mod)
+
 def installed(mod):
+  """ Show what version of a module is installed """
   m = _get_module_details(mod)
   if m is not None:
     if m.installed():
@@ -137,16 +151,21 @@ def installed(mod):
     else:
       print "{} is not installed".format(mod)
 
-def expired(mod=None):
-  """
-  display a list of modules which need an update
-  """
-  for mod in moonbase.list_expired():
-    m = modules.Module(mod)
-    try:
-      print "{} ({} -> {})".format(mod, m.installed_version(), m.version)
-    except RuntimeError:
-      print "processing of DETAILS for {} failed!".format(mod)
+def installed_all():
+  """ Give a complete list of installed modules """
+  results = pkgdb.query("""
+            select m.package, m.date, s.name, m.version, m.size
+                from modules_states ms
+                    inner join modules m on ms.module = m.package
+                    inner join states s on ms.state_id = s.rowid
+  """)
+  for t in results:
+    print "%s:%s:%s:%s:%s" % t
+
+def version(mod):
+  m = _get_module_details(mod)
+  if m is not None:
+    print m.version
 
 commands = {
     "what:"       : what,
@@ -155,6 +174,7 @@ commands = {
     "cd:"         : cd,
     "expired"     : expired,
     "installed:"  : installed,
+    "installed"   : installed_all,
     "version:"    : version,
 }
 
