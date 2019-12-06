@@ -24,10 +24,12 @@ bad_flags()
 		unset LDFLAGS
 	else
 		for BAD_FLAG in "$@" ; do
-			CFLAGS="${CFLAGS/$BAD_FLAG/}"
-			CXXFLAGS="${CXXFLAGS/$BAD_FLAG/}"
-			CPPFLAGS="${CPPFLAGS/$BAD_FLAG/}"
-			LDFLAGS="${LDFLAGS/$BAD_FLAG/}"
+            # XXX should probably figure whether these variables are
+            # guaranteed to start and end with spaces or not
+			CFLAGS="${CFLAGS// $BAD_FLAG / }"
+			CXXFLAGS="${CXXFLAGS// $BAD_FLAG / }"
+			CPPFLAGS="${CPPFLAGS// $BAD_FLAG / }"
+			LDFLAGS="${LDFLAGS// $BAD_FLAG / }"
 		done
 	fi
 }
@@ -59,7 +61,7 @@ optimize_menu()
 
 # PLATFORM - translated uname -m / arch
 PLATFORM=$(uname -m | sed 's/i[3456]86/x86/')
-# BUILD - 
+# BUILD -
 case $PLATFORM in
 	x86|x86_64)
 		BUILD=$(uname -m)-pc-linux-gnu ;;

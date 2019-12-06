@@ -8,8 +8,7 @@ export        DIALOGRC=/etc/lunar/dialogrc
         LOCAL_EXCLUDED=/etc/lunar/local/excluded
                MIRRORS=/etc/lunar/mirrors
 
-         LUNAR_MODULES="lunar theedge"
-        MOONBASE_TYPES="stable unstable"
+         LUNAR_MODULES="lunar"
 
        BUILD_DIRECTORY=/usr/src
     DOCUMENT_DIRECTORY=/usr/share/doc
@@ -66,6 +65,7 @@ export        DIALOGRC=/etc/lunar/dialogrc
          PROMPT_DELAY=${PROMPT_DELAY:-150}
         PROBE_EXPIRED=${PROBE_EXPIRED:-on}
        LUNAR_PRIORITY="+10"
+          TMPFS_BUILD=${TMPFS_BUILD:-off}
 
             LDD_CHECK=${LDD_CHECK:-on}
            FIND_CHECK=${FIND_CHECK:-on}
@@ -80,6 +80,7 @@ export        DIALOGRC=/etc/lunar/dialogrc
           XFREE86_URL=http://ftp.xfree86.org/pub/XFree86
              XORG_URL=https://www.x.org/releases
           LRESORT_URL=http://download.lunar-linux.org/lunar/cache
+           NVIDIA_URL=https://download.nvidia.com/XFree86
 
       MOONBASE_URL[0]=http://lunar-linux.org/lunar/
       MOONBASE_URL[1]=http://download.lunar-linux.org/lunar/

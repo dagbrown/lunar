@@ -36,7 +36,7 @@ save_libraries()  {
   OLD_VERSION=`installed_version  $MODULE`
   OLD_LOG=$INSTALL_LOGS/$MODULE-$OLD_VERSION
 
-  [ -e "$OLD_LOG" ] || return 0      
+  [ -e "$OLD_LOG" ] || return 0
 
   OLD_LIBS=$SOURCE_DIRECTORY/old.libraries
   mkdir  -p  $OLD_LIBS
@@ -49,7 +49,7 @@ save_libraries()  {
 
     if [ -f "$LINE"  ]  &&
          file  -bL  $LINE   |
-         grep  -q   "shared object"
+         grep  -E -q   "shared object|pie executable"
     then
       verbose_msg "saving library \"$LINE\""
       if  [  -h  $LINE  ];  then
@@ -96,7 +96,7 @@ export_ld()  {
   local DIRECTORY
   debug_msg "export_ld ($@)"
   for DIRECTORY in $* ; do
-    if file -b $DIRECTORY/*.so* | grep  -q  "shared object" ; then
+    if file -b $DIRECTORY/*.so* | grep  -q -E "shared object|pie executable" ; then
       if [ -z "$LD_LIBRARY_PATH" ] ; then
         export LD_LIBRARY_PATH="$DIRECTORY"
       else
@@ -117,7 +117,7 @@ prepare_install() {
     lrm --upgrade $MODULE
     true
   fi
-  # turn on tracking now 
+  # turn on tracking now
   invoke_installwatch
   plugin_call BUILD_INSTALL $MODULE
   if [ $? == 2 ]; then
@@ -129,10 +129,10 @@ prepare_install() {
 default_pre_build() {
   debug_msg "default_pre_build ($@)"
   verbose_msg "running \"default_pre_build\""
-  validate_source_dir  $SOURCE_DIRECTORY 
+  validate_source_dir  $SOURCE_DIRECTORY
   if [[ -d $SOURCE_DIRECTORY ]] &&
      [[ $KEEP_SOURCE == "on" ]]; then
-    cd $SOURCE_DIRECTORY && 
+    cd $SOURCE_DIRECTORY &&
     make clean
     if [ $? -ne 0 ]; then
       message "${PROBLEM_COLOR}ERROR: ${DEFAULT_COLOR}The source for ${MODULE_COLOR}$MODULE${DEFAULT_COLOR}: could not be made clean for build."
@@ -164,11 +164,13 @@ _configure()
 }
 
 
-# cmake can be run two ways: in source and out of source. The determinante method is
-# to look for a cmake macro, if it exists then do out of source. There have been inconsistancies
-# with this, some apps compile fine out of source and others do not with the leaning towards 
-# more wanting out of source even though they do not say so. Making this the default and
-# for those that do not want it, specify it in the BUILD.
+# cmake can be run two ways: in source and out of source. The
+# determinante method is to look for a cmake macro, if it exists then do
+# out of source. There have been inconsistancies with this, some apps
+# compile fine out of source and others do not with the leaning towards
+# more wanting out of source even though they do not say so. Making this
+# the default and for those that do not want it, specify it in the
+# BUILD.
 cmake_build_target() {
   debug_msg "cmake_build_target ($@)"
     verbose_msg "running \"Out of source build is required; configuring\""
@@ -236,13 +238,30 @@ default_cmake_config() {
         $OPTS $SOURCE_DIRECTORY
 }
 
+default_meson_config() {
+  debug_msg "default_meson_config ($@)"
+  verbose_msg "running \"default_meson_config\""
+  verbose_msg "MODULE_PREFIX=\"$MODULE_PREFIX\""
+  MESON_BUILD_TYPE=${MESON_BUILD_TYPE:-release}
+  verbose_msg "MESON_BUILD_TYPE=\"$MESON_BUILD_TYPE\""
+  meson --prefix $MODULE_PREFIX \
+        --buildtype $MESON_BUILD_TYPE \
+        --default-library shared \
+        --libdir lib \
+        $OPTS \
+        . build/
+}
+
+default_install() {
+    prepare_install &&
+    make install
+}
 
 default_make() {
   debug_msg "default_make ($@)"
   verbose_msg "running \"default_make\""
   make ${MAKES:+-j${MAKES}}          &&
-  prepare_install                    &&
-  make install
+  default_install
 }
 
 
@@ -261,14 +280,60 @@ default_cmake_build() {
   default_make
 }
 
+default_meson_build() {
+  debug_msg "default_meson_build ($@)"
+  verbose_msg "running \"default_meson_build\""
+  default_meson_config &&
+  ninja -C build/ &&
+  prepare_install &&
+  ninja -C build/ install
+}
 
-default_build() {
-  debug_msg "default_build ($@)"
-  verbose_msg "running \"default_build\""
+default_perl_build() {
+    debug_msg "default_perl_build ($@)"
+    verbose_msg "running \"default_perl_build\""
+    perl Makefile.PL &&
+    default_make
+}
+
+default_python2_build() {
+    debug_msg "default_python2_build ($@)"
+    verbose_msg "running \"default_python2_build\""
+    python2 setup.py build &&
+    prepare_install &&
+    python2 setup.py install --root=/ $OPTS
+}
+
+default_python3_build() {
+    debug_msg "default_python3_build ($@)"
+    verbose_msg "running \"default_python3_build\""
+    python3 setup.py build &&
+    prepare_install &&
+    python3 setup.py install --root=/ $OPTS
+}
+
+default_gnu_build() {
+  debug_msg "default_gnu_build ($@)"
+  verbose_msg "running \"default_gnu_build\""
   default_config  &&
   default_make
 }
 
+default_build() {
+  debug_msg "default_build ($@)"
+  verbose_msg "running \"default_build\""
+
+    case "$TYPE" in
+        python2) default_python2_build ;;
+        python3) default_python3_build ;;
+        cpan)    default_cpan_build    ;;
+        perl)    default_perl_build    ;;
+        game)    default_game_build    ;;
+        cmake)   default_cmake_build   ;;
+        meson)   default_meson_build   ;;
+        *)       default_gnu_build     ;;
+    esac
+}
 
 default_cvs_build() {
   debug_msg "default_cvs_build ($@)"
@@ -297,13 +362,13 @@ default_cpan_build() {
   if [ ! -x /usr/bin/cpan ] ; then
     return 1
   fi
-  
+
   CPAN_MODULE=${SOURCE_URL/cpan:\/\//}
   echo "o conf cpan_root $STATE_DIRECTORY
         o conf build_dir $SOURCE_DIRECTORY
         o conf keep_source_where $SOURCE_DIRECTORY
-	install $CPAN_MODULE
-	quit" | /usr/bin/cpan || exit 1
+        install $CPAN_MODULE
+        quit" | /usr/bin/cpan || exit 1
   rm_source_dir $SOURCE_DIRECTORY
 }
 
@@ -392,7 +457,7 @@ run_build()  {
   fi
 
   verbose_msg "building \"$MODULE\" version \"$VERSION\" in `pwd`"
-  
+
   # this calls optimizations and others:
   plugin_call BUILD_BUILD $MODULE
   # now override compile wrappers if needed:

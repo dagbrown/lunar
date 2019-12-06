@@ -32,7 +32,7 @@ stop_logging() {
            "${FILE_COLOR}$COMPILE_LOGS/$MODULE-$VERSION.${COMPRESS_METHOD}"  \
            "${DEFAULT_COLOR}"
 
-  ${COMPRESS_METHOD/bz2/bzip2} -9f < $C_LOG > $COMPILE_LOGS/$MODULE-$VERSION.${COMPRESS_METHOD}
+  ${COMPRESS_METHOD/bz2/bzip2} -9f $COMPRESS_METHOD_ARGS < $C_LOG > $COMPILE_LOGS/$MODULE-$VERSION.${COMPRESS_METHOD}
   temp_destroy $C_LOG
   temp_destroy $C_FIFO
 }
@@ -113,5 +113,3 @@ activity_log()  {
   echo -e "$(date -u +%Y%m%d-%T)\t$1\t$2\t$3\t$4\t$5" >> $ACTIVITY_LOG
   unlock_file $ACTIVITY_LOG
 }
-
-

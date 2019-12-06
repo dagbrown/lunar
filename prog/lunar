@@ -33,7 +33,7 @@ Lunar -- a menu-driven software package management utility
 
 Example:        lunar
   This invokes the full-screen interface
-  
+
 Usage:		lunar [general options] [command [command parameters]]
 
 General options:
@@ -67,7 +67,7 @@ EOF
   exit  1
 }
 
-show_modules()	{ 
+show_modules()	{
   for  MODULE in `list_modules "$1"`;  do
     if  !  module_installed  $MODULE  &&
         !  module_exiled     $MODULE
@@ -83,7 +83,7 @@ show_modules()	{
 }
 
 
-has_modules()	{ 
+has_modules()	{
   for  MODULE in `list_modules "$1"`;  do
     if  !  module_installed  $MODULE  &&
         !  module_exiled     $MODULE
@@ -531,7 +531,7 @@ feature_menu()  {
          AUTOFIX=${AUTOFIX:-on}
        AUTOPRUNE=${AUTOPRUNE:-off}
            COLOR=${COLOR:-on}
-     KEEP_SOURCE=${KEEP_SOURCE:-off}      
+     KEEP_SOURCE=${KEEP_SOURCE:-off}
     MAIL_REPORTS=${MAIL_REPORTS:-off}
     VIEW_REPORTS=${VIEW_REPORTS:-off}
         PRESERVE=${PRESERVE:-on}
@@ -582,13 +582,13 @@ feature_menu()  {
       "COMPRESS_XZ"      "Toggle"  "$COMPRESS_XZ"   "$L_HELP"`
 
   then
-  
+
          ARCHIVE=off
    AUTORESURRECT=off
          AUTOFIX=off
        AUTOPRUNE=off
            COLOR=off
-     KEEP_SOURCE=off    
+     KEEP_SOURCE=off
     MAIL_REPORTS=off
         PRESERVE=off
            SOUND=off
@@ -609,7 +609,7 @@ ZLOCAL_OVERRIDES=off
              AUTOFIX)       AUTOFIX=on  ;;
            AUTOPRUNE)     AUTOPRUNE=on  ;;
                COLOR)         COLOR=on  ;;
-         KEEP_SOURCE)   KEEP_SOURCE=on  ;;      
+         KEEP_SOURCE)   KEEP_SOURCE=on  ;;
         MAIL_REPORTS)  MAIL_REPORTS=on  ;;
             PRESERVE)      PRESERVE=on  ;;
                SOUND)         SOUND=on  ;;
@@ -626,7 +626,10 @@ ZLOCAL_OVERRIDES=off
 	     VERBOSE)       VERBOSE=on  ;;
     ZLOCAL_OVERRIDES) ZLOCAL_OVERRIDES=on ;;
        PROBE_EXPIRED)  PROBE_EXPIRED=on ;;
-         COMPRESS_XZ) COMPRESS_METHOD=xz ;;
+         COMPRESS_XZ)
+           COMPRESS_METHOD=xz
+           COMPRESS_METHOD_ARGS="-T 0"
+           ;;
       esac
     done
 
@@ -648,7 +651,11 @@ ZLOCAL_OVERRIDES=off
     set_local_config "PROBE_EXPIRED" "$PROBE_EXPIRED"
     set_local_config "COLOR" "$COLOR"
     set_local_config "COMPRESS_METHOD" "$COMPRESS_METHOD"
-
+    if [ "$COMPRESS_METHOD" = "xz" ]; then
+      set_local_config "COMPRESS_METHOD_ARGS" "$COMPRESS_METHOD_ARGS"
+    else
+      unset_local_config "COMPRESS_METHOD_ARGS"
+    fi
   fi
 }
 
@@ -662,8 +669,6 @@ option_menu()  {
     O_HELP="Select architecture optimizations"
     I_HELP="Select the test that lunar fix, and AUTOFIX execute"
     D_HELP="Options for downloads"
-    L_HELP="Select default lunar module"
-    T_HELP="Select default moonbase branch"
     A_HELP="Select accepted licenses"
     R_HELP="Select rejected licenses"
 
@@ -674,8 +679,6 @@ option_menu()  {
                       --menu                                   \
                       ""                                       \
                       0 40 8                                   \
-                      "L"  "Default Lunar Module"   "$L_HELP"  \
-                      "T"  "Default Moonbase Branch" "$T_HELP" \
                       "P"  "Prompt Delay"           "$P_HELP"  \
                       "D"  "Download Options"       "$D_HELP"  \
                       "E"  "Admin's Email"          "$E_HELP"  \
@@ -695,8 +698,6 @@ option_menu()  {
       I)  integrity_menu         ;;
       M)  mirror_menu            ;;
       O)  optimize_menu          ;;
-      L)  set_default_module     ;;
-      T)  set_default_moonbase   ;;
       A)  set_accepted_licenses  ;;
       R)  set_rejected_licenses  ;;
     esac
@@ -760,7 +761,7 @@ setvar() {
 unsetvar() {
   if [ ! -z "$*" ] ; then
     unset_local_config "$1"
-  fi   
+  fi
 }
 
 
@@ -826,7 +827,7 @@ main() {
 
   main_menu
 }
-  
+
 . /etc/lunar/config
 . $BOOTSTRAP
 
@@ -837,8 +838,8 @@ if [ -z "$?" ] ; then
   exit
 else
   eval set -- $GETOPT_ARGS
-  root_check 
-  enviro_check 
+  root_check
+  enviro_check
   set_priority
 
   while true ; do
@@ -871,7 +872,7 @@ else
     unexile    ) shift && unexile_modules $@            ;;
     enforce    ) shift && enforce_modules $@            ;;
     unenforce  ) shift && unenforce_modules $@          ;;
-    *) main ;; 
+    *) main ;;
   esac
 fi
 

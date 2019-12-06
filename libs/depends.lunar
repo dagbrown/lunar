@@ -633,5 +633,3 @@ list_installed_depending() {
     fi
   done
 }
-
-
