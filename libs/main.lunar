@@ -95,7 +95,7 @@ rebuild()  {
   message  "${MESSAGE_COLOR}Running FIX on all modules${DEFAULT_COLOR}"
   run_fix
 
-  LIST=$(list_installed | fgrep -v -x -e moonbase -e "$LUNAR_MODULE")
+  LIST=$(list_installed | grep -F -v -x -e moonbase -e "$LUNAR_MODULE")
 
   message "${MESSAGE_COLOR}Sorting modules by dependency${DEFAULT_COLOR}"
   QUEUE=$(sort_by_dependency $LIST)
@@ -190,19 +190,17 @@ resurrect()  {
   satisfy_depends  &&
 
   STATUS=installed &&
-
-  if module_held $MODULE ; then
-    VERSION=$(installed_version $MODULE)
-    STATUS="installed+held"
-    lrm --keepconfig $MODULE
-  elif module_installed $MODULE ; then
-    lrm --keepconfig $MODULE
-  fi &&
-
-  CACHE_XZ=$(xzbz_file "$INSTALL_CACHE/$MODULE-$VERSION-$BUILD.tar")
+  CACHE_XZ=$(xzbz_file "$INSTALL_CACHE/$MODULE-$VERSION-$BUILD.tar") &&
 
   if [ -f "$CACHE_XZ" ] && xzbz -t $CACHE_XZ ; then
-    message  "${RESURRECT_COLOR}Resurrecting ${MODULE_COLOR}${MODULE}${DEFAULT_COLOR} ${MESSAGE_COLOR}version ${VERSION_COLOR}${VERSION}${DEFAULT_COLOR}"
+    if module_held $MODULE ; then
+      VERSION=$(installed_version $MODULE) &&
+      STATUS="installed+held" &&
+      lrm --keepconfig $MODULE
+    elif module_installed $MODULE ; then
+      lrm --keepconfig $MODULE
+    fi &&
+    message "${RESURRECT_COLOR}Resurrecting ${MODULE_COLOR}${MODULE}${DEFAULT_COLOR} ${MESSAGE_COLOR}version ${VERSION_COLOR}${VERSION}${DEFAULT_COLOR}" &&
     expand_cache_safe $CACHE_XZ &&
     add_module $MODULE $STATUS $VERSION &&
     verbose_msg "running \"lunar fix $MODULE\"" &&
@@ -217,6 +215,10 @@ resurrect()  {
       false
     fi
   else
+    if [ ! -f "$CACHE_XZ" ]; then
+      message "${RESURRECT_COLOR}Resurrection ${PROBLEM_COLOR}failed for ${MODULE_COLOR}${MODULE} ${MESSAGE_COLOR}version ${VERSION_COLOR}${VERSION}${DEFAULT_COLOR} - ${MESSAGE_COLOR}missing cache tarball.${DEFAULT_COLOR}"
+    fi
+
     # do not log an error in case we tried autoresurrect:
     if [ "$AUTORESURRECT" == "off" -o -n "$COMPILE" ] ; then
       sound FAILURE
@@ -259,6 +261,11 @@ lin_module()  {
 
   # set the installwatchfile
   export INSTALLWATCHFILE=$(temp_create "$MODULE.installwatch")
+
+  # TODO: clean up DESTDIR_BUILD feature toggle
+  if [[ "${DESTDIR_BUILD:-off}" == "on" ]]; then
+    save_old_install_log
+  fi
 
   # lock the module for installation, check for moonbase call
   linING="/var/lock/installing.$MODULE"

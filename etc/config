@@ -15,6 +15,9 @@ export        DIALOGRC=/etc/lunar/dialogrc
 
         DEFAULT_PREFIX=/usr
 
+      OBSOLETE_LIB_DIR=/usr/lib/lunar/OBSOLETE
+      OBSOLETE_LD_CONF=/etc/ld.so.conf.d/obsolete-libs.conf
+
              BOOTSTRAP=/var/lib/lunar/bootstrap
               EXCLUDED=/var/lib/lunar/excluded
               MOONBASE=/var/lib/lunar/moonbase
@@ -47,13 +50,21 @@ export        DIALOGRC=/etc/lunar/dialogrc
          INSTALL_CACHE=/var/cache/lunar
           SOURCE_CACHE=${SOURCE_CACHE:-/var/spool/lunar}
 
+        STRIP_BINARIES="--strip-all"
+          STRIP_SHARED="--strip-unneeded"
+          STRIP_STATIC="--strip-debug"
+
 #  Override the following variables in /etc/lunar/local/config
 #  Or by exporting them before installing or removing.
 
               ARCHIVE=${ARCHIVE:-on}
               AUTOFIX=${AUTOFIX:-on}
             AUTOPRUNE=${AUTOPRUNE:-on}
+     CHECK_FREE_SPACE=${CHECK_FREE_SPACE:-on}
+  REQUIRED_FREE_SPACE=${REQUIRED_FREE_SPACE:-2G}
+   KEEP_OBSOLETE_LIBS=${KEEP_OBSOLETE_LIBS:-on}
          MAIL_REPORTS=${MAIL_REPORTS:-off}
+     MOONBASE_ACT_LOG=${MOONBASE_ACT_LOG:-on}
              PRESERVE=${PRESERVE:-on}
                  REAP=${REAP:-on}
                 ADMIN=${ADMIN:-root}
