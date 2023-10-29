@@ -15,6 +15,70 @@
 #                                                          #
 ############################################################
 
+# function : create_module_status
+# usage    : create_module_status
+# purpose  : create new empty module status file
+create_module_status() {
+    sqlite3 "$MODULE_STATUS" <<EOT
+        drop table if exists modules;
+
+        create table modules (
+            package text primary key,
+            date datestamp,
+            version text,
+            size integer
+        );
+
+        drop table if exists states;
+        create table states (
+            id integer,
+            name text primary key
+        );
+
+        insert into states values ( 1, 'installed' );
+        insert into states values ( 2, 'held' );
+        insert into states values ( 3, 'exiled' );
+        insert into states values ( 4, 'enforced' );
+
+        drop table if exists modules_states;
+
+        create table modules_states (
+            module text,
+            state_id integer,
+            foreign key(module) references modules(package),
+            foreign key(state_id) references states(id)
+        );
+
+        drop table if exists depends_cache;
+
+        create table depends_cache (
+            module text,
+            dependency text,
+            required boolean,
+            flags_for_active text,
+            flags_for_not_active text,
+            reason text,
+            foreign key(module) references module_index(package),
+            foreign key(dependency) references module_index(package)
+        );
+
+        drop table if exists depends_status;
+
+        create table depends_status (
+            module text,
+            dependency text,
+            required boolean,
+            active boolea,
+            flags_for_active text,
+            flags_for_not_active text,
+            updated boolean default true,
+            foreign key(module) references module_index(package),
+            foreign key(dependency) references module_index(package)
+        );
+EOT
+    touch $MODULE_STATUS $DEPENDS_STATUS $DEPENDS_STATUS_BACKUP
+}
+
 try_sqlite() {
     local counter
 
