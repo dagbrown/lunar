@@ -498,7 +498,7 @@ create_depends_cache()
 
     # you guessed it: local decls.
     depends() {
-      if [ $(try_sqlite "select count(*) from module_index where package = '$1'") == 0 ]
+      if [ $(try_sqlite $MODULE_STATUS "select count(*) from module_index where package = '$1'") == 0 ]
       then
           error_message "Dependency '$1' called for by module '$MODULE' not found!"
       else
@@ -509,7 +509,7 @@ create_depends_cache()
     optional_depends() {
       # No quotes, this prevent us from parsing newlines
       # if someone by accident add a newline in optional_depends
-      if [ $(try_sqlite "select count(*) from module_index where package = '$1'") == 0 ]
+      if [ $(try_sqlite $MODULE_STATUS "select count(*) from module_index where package = '$1'") == 0 ]
       then
           error_message "Dependency '$1' called for by module '$MODULE' not found!"
       else
