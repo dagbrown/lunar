@@ -114,19 +114,19 @@ create_module_index() {
         while read detailsfilename
         do
             (
-                eval $(egrep '^ *(VERSION|UPDATED)' $detailsfilename)
+                eval $(grep -E '^ *(VERSION|UPDATED)' $detailsfilename)
                 echo $detailsfilename |
                     sed -e 's:/var/lib/lunar/moonbase/::' \
                         -e 's:/DETAILS::g' \
                         -e 's/\/\([^/]*\)$/:\1/' \
-                        -e "s/\\(.*\\):\\(.*\\)/\\2:\\1:$VERSION:$DETAILS/g"
+                        -e "s/\\(.*\\):\\(.*\\)/\\2:\\1:$VERSION:$UPDATED/g"
             )
         done > $TMP_INDEX
   else
 
     # this *really* is the fastest way to do it, no guarantees, we
     # do have to make sure MOONBASE is coherent and tidy though
-    debug_msg "Regenerating \$MODULE_INDEX manually..."
+    debug_msg "Regenerating \$MODULE_INDEX from scratch..."
     find $MOONBASE -type f -name DETAILS ! -regex "$MOONBASE/zlocal/.*" \
         -printf "%h\n" | while read module
     do
