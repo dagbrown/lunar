@@ -17,7 +17,7 @@
 
 # function : create_module_status
 # usage    : create_module_status
-# purpose  : create new empty module status file
+# purpose  : create new empty module status database
 create_module_status() {
     sqlite3 "$MODULE_STATUS" <<EOT
         drop table if exists modules;
@@ -79,6 +79,11 @@ EOT
     touch $MODULE_STATUS $DEPENDS_STATUS $DEPENDS_STATUS_BACKUP
 }
 
+# function : try_sqlite
+# usage    : try_sqlite [<options>] <dbfile> "<query>"
+# purpose  : Run sqlite query on <dbfile>, creating module status
+#            databases first if necessary
+
 try_sqlite() {
     local counter
 
@@ -101,10 +106,6 @@ try_sqlite() {
 
 migrate_module_status() {
     message "One-shot: migrating text module status to database format"
-
-    mv $MODULE_STATUS ${MODULE_STATUS}.txt
-    mv $DEPENDS_CACHE ${DEPENDS_CACHE}.txt
-    mv $DEPENDS_STATUS ${DEPENDS_STATUS}.txt
 
     create_module_status
     create_module_index
