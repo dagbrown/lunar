@@ -151,7 +151,7 @@ create_module_index() {
 
   # the old module index can still be used for its timestamp
   # (thanks, find command)
-  touch $MODULE_INDEX
+  install -m644 $TMP_INDEX $MODULE_INDEX
 
   # do not forget to do these at any time:
   temp_destroy $TMP_INDEX
