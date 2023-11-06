@@ -57,7 +57,7 @@ function find_depends() {
         DEPS=$(MODULE=$1 . $DEPFILE)
       fi
     else
-      DEPS=$(try_sqlite $MODULE_STATUS "
+      DEPS=$(try_sqlite $MODULE_STATUS_DB "
         select dependency from depends_cache dm
             where module = '$1'")
     fi
@@ -67,7 +67,7 @@ function find_depends() {
       if ! grep -qx "$DEP" "$TMP_FDEPS" ; then
         echo "$DEP" >> $TMP_FDEPS
         local required
-        required=$(try_sqlite $MODULE_STATUS "
+        required=$(try_sqlite $MODULE_STATUS_DB "
             select count(*) from depends_cache
                 where module = '$1' and dependency = '$DEP'
                 and required = 1")
@@ -102,7 +102,7 @@ sort_by_dependency() {
 
   # tsort the existing dep relations in all of moonbase
   TMP_TSRT=$(temp_create "dependency.sort")
-  try_sqlite -separator ' ' $MODULE_STATUS "
+  try_sqlite -separator ' ' $MODULE_STATUS_DB "
     select module, dependency from depends_cache" |
   while read A B ; do
     B=$(MODULE=$A NEVER_ASK=1 DEPS_ONLY= expand_alias $B)
@@ -151,7 +151,7 @@ sort_by_dependency() {
 is_depends()  {
   debug_msg "is_depends ($@)"
   # Is $1 a previously selected dependency of any module.
-  return $(try_sqlite $MODULE_STATUS "
+  return $(try_sqlite $MODULE_STATUS_DB "
         select count(*) == 0 from depends_status
             where dependency = '$1' and active = 1")
 }
@@ -163,7 +163,7 @@ in_depends()  {
 
   DEP=$(expand_alias $2)
   # Was $2 presented as a dependency for module $1
-  return $(try_sqlite $MODULE_STATUS "
+  return $(try_sqlite $MODULE_STATUS_DB "
         select count(*) == 0 from depends_status
         where module = '$1' and dependency = '$DEP'
         and active = 1")
@@ -174,13 +174,13 @@ remove_depends() {
   debug_msg "remove_depends ($@)"
 
   if [ -n "$2" ] ; then
-    try_sqlite $MODULE_STATUS "delete from depends_status
+    try_sqlite $MODULE_STATUS_DB "delete from depends_status
         where module = '$1' and dependency = '$2'"
-  elif [ $(try_sqlite $MODULE_STATUS "select count(*)
+  elif [ $(try_sqlite $MODULE_STATUS_DB "select count(*)
                                    from depends_status
                                    where module = '$1'") -gt 0 ]
   then
-    try_sqlite $MODULE_STATUS "delete from depends_status
+    try_sqlite $MODULE_STATUS_DB "delete from depends_status
                             where module = '$1'"
   fi
 }
@@ -210,7 +210,7 @@ add_depends() {
       required=0
   fi
 
-  dependency_present=$(try_sqlite $MODULE_STATUS "
+  dependency_present=$(try_sqlite $MODULE_STATUS_DB "
       select count(*) from depends_status
           where module = '$package'
           and dependency = '$dependency'
@@ -221,7 +221,7 @@ add_depends() {
 
   if [[ $dependency_present -eq 0 ]]
   then
-    try_sqlite $MODULE_STATUS "
+    try_sqlite $MODULE_STATUS_DB "
         insert into depends_status values (
             '$package', '$dependency', $active, $required,
             '$flags_for_active', '$flags_for_not_active', 1 )"
@@ -276,7 +276,7 @@ run_depends() {
         lin --deps $DEP
         echo "$DEP" >> $TEMP_PREPAREDDEPS
       fi
-    elif [ $(try_sqlite $MODULE_STATUS "
+    elif [ $(try_sqlite $MODULE_STATUS_DB "
                select count(*) from depends_status
                    where module = '$MODULE' and dependency = '$DEP'") == 0 ]
     then
@@ -360,7 +360,7 @@ satisfy_depends()  {
   fi
 
   TMP_FILE=$(temp_create "${MODULE}.satify-depends")
-  try_sqlite -separator : $MODULE_STATUS "
+  try_sqlite -separator : $MODULE_STATUS_DB "
       select m.package,d.package,
              ds.required,ds.active,
              ds.flags_for_active,ds.flags_for_not_active
@@ -481,7 +481,7 @@ create_depends_cache()
 
   if [ $MODULE_INDEX -nt $DEPENDS_CACHE ] ; then
     verbose_msg "Generating a new depends cache..."
-    try_sqlite $MODULE_STATUS "
+    try_sqlite $MODULE_STATUS_DB "
       drop table if exists depends_cache;
 
       create table depends_cache (
@@ -498,7 +498,7 @@ create_depends_cache()
 
     # you guessed it: local decls.
     depends() {
-      if [ $(try_sqlite $MODULE_STATUS "select count(*) from module_index where package = '$1'") == 0 ]
+      if [ $(try_sqlite $MODULE_STATUS_DB "select count(*) from module_index where package = '$1'") == 0 ]
       then
           error_message "Dependency '$1' called for by module '$MODULE' not found!"
       else
@@ -509,7 +509,7 @@ create_depends_cache()
     optional_depends() {
       # No quotes, this prevent us from parsing newlines
       # if someone by accident add a newline in optional_depends
-      if [ $(try_sqlite $MODULE_STATUS "select count(*) from module_index where package = '$1'") == 0 ]
+      if [ $(try_sqlite $MODULE_STATUS_DB "select count(*) from module_index where package = '$1'") == 0 ]
       then
           error_message "Dependency '$1' called for by module '$MODULE' not found!"
       else
@@ -541,7 +541,7 @@ create_depends_cache()
     for DEPFILE in $DEPFILES ; do
       TMP=${DEPFILE%/*} MODULE=${TMP##*/} . $DEPFILE
     done > $TMP_DEP_CACHE &&
-    try_sqlite -separator '|' $MODULE_STATUS ".import $TMP_DEP_CACHE depends_cache"
+    try_sqlite -separator '|' $MODULE_STATUS_DB ".import $TMP_DEP_CACHE depends_cache"
     touch $DEPENDS_CACHE # for the timestamp
 
     temp_destroy $TMP_DEP_CACHE
@@ -562,12 +562,12 @@ update_module_depends()
     debug_msg "  optional_depends ($@)"
     DEP=$(NEVER_ASK=1 DEPS_ONLY= expand_alias $1)
 
-    if [ $(try_sqlite $MODULE_STATUS "
+    if [ $(try_sqlite $MODULE_STATUS_DB "
         select count(*) > 0 from depends_status
             where module = '$MODULE' and dependency = '$DEP'
             and required = 0") == 1 ]
     then
-        try_sqlite $MODULE_STATUS "
+        try_sqlite $MODULE_STATUS_DB "
             update depends_status
                 set flags_for_active = '$2',
                     flags_for_not_active = '$3',
@@ -582,16 +582,16 @@ update_module_depends()
     local DEP
     debug_msg "  depends ($@)"
     DEP=$(NEVER_ASK=1 DEPS_ONLY= expand_alias $1)
-    if [ $(try_sqlite $MODULE_STATUS "
+    if [ $(try_sqlite $MODULE_STATUS_DB "
          select count(*) > 0 from depends_status
              where module = '$MODULE' and dependency = '$DEP' ") == 1 ]
     then
-        try_sqlite $MODULE_STATUS "
+        try_sqlite $MODULE_STATUS_DB "
             update depends_status
                set required=1,active=1,updated=1
                where module = '$MODULE' and dependency = '$DEP'"
     else
-        try_sqlite $MODULE_STATUS "
+        try_sqlite $MODULE_STATUS_DB "
             insert into depends_status values (
             '$MODULE', '$DEP', 1, 1, '', '', 1)"
     fi
@@ -615,10 +615,10 @@ update_module_depends()
   MODULE=$1
 
   (
-    try_sqlite $MODULE_STATUS "
+    try_sqlite $MODULE_STATUS_DB "
         update depends_status set updated = 0 where module = '$MODULE'"
     run_depends $MODULE
-    try_sqlite $MODULE_STATUS "delete from depends_status where updated = 0"
+    try_sqlite $MODULE_STATUS_DB "delete from depends_status where updated = 0"
   )
 }
 
@@ -629,7 +629,7 @@ update_depends()
   local MODULE
   debug_msg "update_depends($@)"
 
-  for MODULE in $(try_sqlite $MODULE_STATUS '
+  for MODULE in $(try_sqlite $MODULE_STATUS_DB '
         select distinct(m.package)
             from depends_status ds
             inner join modules m on m.package = ds.module') ; do
@@ -642,7 +642,7 @@ update_depends()
 list_installed_depending() {
   local SUBDEP
   debug_msg "list_installed_depending($2)"
-  for SUBDEP in $(try_sqlite $MODULE_STATUS "
+  for SUBDEP in $(try_sqlite $MODULE_STATUS_DB "
     select m.package from depends_cache dm
       inner join modules m on m.package = dm.module
       where dm.dependency = '$1'")

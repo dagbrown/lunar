@@ -59,7 +59,7 @@ prune() {
   temp_destroy $TMP_CACHE_KEEP
 
   # the log files are easy:
-  LOGS=$(sqlite3 -separator - $MODULE_STATUS \
+  LOGS=$(sqlite3 -separator - $MODULE_STATUS_DB \
          "select package, version from modules m")
 
   verbose_msg "finding stale install logs"

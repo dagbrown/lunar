@@ -1264,7 +1264,7 @@ main() {
 
     installed)
       if [ -z "$2" ] ; then
-          sqlite3 -separator : "$MODULE_STATUS" "
+          sqlite3 -separator : "$MODULE_STATUS_DB" "
             select m.package, m.date, s.name, m.version, m.size
                 from modules_states ms
                     inner join modules m on ms.module = m.package
@@ -1280,7 +1280,7 @@ main() {
       ;;
 
     held)
-      sqlite3 -separator : "$MODULE_STATUS" "
+      sqlite3 -separator : "$MODULE_STATUS_DB" "
         select m.package
             from modules_states ms
                 inner join modules m on ms.module = m.package
@@ -1289,7 +1289,7 @@ main() {
       ;;
 
     exiled)
-      sqlite3 -separator : "$MODULE_STATUS" "
+      sqlite3 -separator : "$MODULE_STATUS_DB" "
         select m.package
             from modules_states ms
                 inner join modules m on ms.module = m.package
@@ -1298,7 +1298,7 @@ main() {
       ;;
 
     enforced)
-      sqlite3 -separator : "$MODULE_STATUS" "
+      sqlite3 -separator : "$MODULE_STATUS_DB" "
         select m.package
             from modules_states ms
                 inner join modules m on ms.module = m.package

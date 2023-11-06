@@ -26,8 +26,8 @@ find_module_size() {
    {
       local SIZE
       unset SIZE
-      [ -e "$MODULE_STATUS" ] &&
-      SIZE=$(sqlite3 "$MODULE_STATUS" \
+      [ -e "$MODULE_STATUS_DB" ] &&
+      SIZE=$(sqlite3 "$MODULE_STATUS_DB" \
         "select size from modules where package = '$1'")
       [ -n "$SIZE" ] && echo ${SIZE} || false
    }

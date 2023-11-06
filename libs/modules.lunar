@@ -32,7 +32,7 @@
 list_sections() {
 	debug_msg "list_sections ($@)"
 	check_module_index
-    try_sqlite $MODULE_STATUS 'select distinct(location) from module_index'
+    try_sqlite $MODULE_STATUS_DB 'select distinct(location) from module_index'
 	find $MOONBASE/zlocal \( -name DETAILS.$PLATFORM -o -name DETAILS \) | sed "s:^$MOONBASE\/::g;s:\/[^\/]*\/DETAILS.*::g" | sort | uniq
 	return 0
 }
@@ -53,9 +53,9 @@ list_modules() {
 		exit 1
 	fi
 
-    if [[ $(try_sqlite $MODULE_STATUS "select count(*) from module_index where location = '$1'") != "0" ]]
+    if [[ $(try_sqlite $MODULE_STATUS_DB "select count(*) from module_index where location = '$1'") != "0" ]]
     then
-        try_sqlite $MODULE_STATUS "select package from module_index where location = '$1'"
+        try_sqlite $MODULE_STATUS_DB "select package from module_index where location = '$1'"
 		return 0
 	else
 	 (
@@ -83,7 +83,7 @@ list_moonbase() {
 # purpose  : return a list of installed (or held) modules
 list_installed() {
   debug_msg "list_installed ($@)"
-  try_sqlite "$MODULE_STATUS" \
+  try_sqlite "$MODULE_STATUS_DB" \
       "select distinct m.package
            from modules_states ms
            inner join modules m on ms.module = m.package
@@ -144,14 +144,15 @@ create_module_index() {
   fi
 
   # this should be safe enough:
-  try_sqlite $MODULE_STATUS "
+  try_sqlite $MODULE_STATUS_DB "
     drop table if exists module_index;
     create table module_index (package text, location text, version text, updated text);"
-  try_sqlite -separator : $MODULE_STATUS ".import $TMP_INDEX module_index"
+  try_sqlite -separator : $MODULE_STATUS_DB ".import $TMP_INDEX module_index"
 
   # the old module index can still be used for its timestamp
   # (thanks, find command)
-  install -m644 $TMP_INDEX $MODULE_INDEX
+  sort -u $TMP_INDEX > $MODULE_INDEX
+  chmod 644 $MODULE_INDEX
 
   # do not forget to do these at any time:
   temp_destroy $TMP_INDEX
@@ -214,7 +215,7 @@ find_section() {
 	do
 		sleep 0.1
 	done
-	SECTION=$(try_sqlite $MODULE_STATUS \
+	SECTION=$(try_sqlite $MODULE_STATUS_DB \
 		"select location from module_index where package = '$1'")
     # SECTION=$(awk -F: "(\$1==\"$1\"){print \$2;exit 0}" "$MODULE_INDEX")
 	if [[ -n "$SECTION" ]] && [[ -d "$MOONBASE/$SECTION/$1" ]] ; then
@@ -239,7 +240,7 @@ find_section() {
 	fi
 
 	# and search again, this should be quick now
-	SECTION=$(try_sqlite $MODULE_STATUS \
+	SECTION=$(try_sqlite $MODULE_STATUS_DB \
         "select location from module_index where package = '$1'")
 	# SECTION=$(awk -F: "(\$1==\"$1\"){print \$2;exit 0}" "$MODULE_INDEX")
 	if [[ -n "$SECTION" ]] && [[ -d "$MOONBASE/$SECTION/$1" ]] ; then
@@ -453,7 +454,7 @@ module_enforced() {
 # purpose  : return the installed version of $MODULE
 installed_version() {
   debug_msg "installed_version ($@)"
-  try_sqlite "$MODULE_STATUS" "select version from modules where package = '$1'"
+  try_sqlite "$MODULE_STATUS_DB" "select version from modules where package = '$1'"
 }
 
 
@@ -570,12 +571,12 @@ remove_module() {
   debug_msg "remove_module ($@)"
 
   # catch this on new boxes:
-  if [ ! -f $MODULE_STATUS ] ; then
+  if [ ! -f $MODULE_STATUS_DB ] ; then
       create_module_status
   fi
 
   verbose_msg "updating lunar state files after module removal"
-  try_sqlite "$MODULE_STATUS" \
+  try_sqlite "$MODULE_STATUS_DB" \
     "insert into modules
          select '$1', null, null, null
          where not exists (
@@ -595,19 +596,19 @@ add_module()  {
   debug_msg "add_module ($@)"
 
   # catch this on new boxes:
-  if [ ! -f $MODULE_STATUS ] ; then
+  if [ ! -f $MODULE_STATUS_DB ] ; then
     create_module_status
   fi
 
   verbose_msg "updating lunar state files after module installation"
   datestamp=$(date -u +%Y%m%d)
-  try_sqlite "$MODULE_STATUS" \
+  try_sqlite "$MODULE_STATUS_DB" \
       "insert into modules
            select '$1', null, null, null
            where not exists (
               select * from modules where package = '$1');"
 
-  try_sqlite "$MODULE_STATUS" \
+  try_sqlite "$MODULE_STATUS_DB" \
       "update modules
           set version = '$3',
               date = '$datestamp',
@@ -624,7 +625,7 @@ add_module()  {
 add_module_state() {
   debug_msg "add_module_state ($@)"
 
-  try_sqlite "$MODULE_STATUS" \
+  try_sqlite "$MODULE_STATUS_DB" \
        "begin transaction;
         insert into modules
             select '$1', null, null, null
@@ -650,7 +651,7 @@ add_module_state() {
 remove_module_state() {
   debug_msg "remove_module_state ($@)"
 
-  try_sqlite "$MODULE_STATUS" \
+  try_sqlite "$MODULE_STATUS_DB" \
       "delete from modules_states
        where module = '$1'
          and state_id = ( select id from states where name = '$2' )"
@@ -681,7 +682,7 @@ change_module_state() {
 has_module_state() {
   debug_msg "has_module_state ($@)"
 
-  [[ $(try_sqlite "$MODULE_STATUS" \
+  [[ $(try_sqlite "$MODULE_STATUS_DB" \
       "select count(*)
         from modules_states ms
             inner join states s on ms.state_id = s.id
@@ -695,7 +696,7 @@ has_module_state() {
 get_module_state() {
   debug_msg "get_module_state ($@)"
 
-  echo $(try_sqlite "$MODULE_STATUS" \
+  echo $(try_sqlite "$MODULE_STATUS_DB" \
     "select s.name
         from modules_states ms
             inner join states s on ms.state_id = s.id
@@ -741,7 +742,7 @@ module_is_expired() {
       return 255
     fi
     LINE=$(module_installed $MODULE && module_held $MODULE ||
-           try_sqlite -separator ' ' "$MODULE_STATUS" \
+           try_sqlite -separator ' ' "$MODULE_STATUS_DB" \
                "select 'IDATE=' || date || ' IVERSION=' || version
                     from modules
                     where package = '$MODULE'")
@@ -766,7 +767,7 @@ module_is_expired() {
 # purpose  : return a list of modules that need to be updated
 list_expired_modules() {
   debug_msg "list_expired_modules ($@)"
-  try_sqlite $MODULE_STATUS 'select m.package from modules m
+  try_sqlite $MODULE_STATUS_DB 'select m.package from modules m
     inner join module_index i on m.package = i.package
     where m.date < i.updated and not (
         select count(*) from modules_states
