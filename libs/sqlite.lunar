@@ -105,10 +105,14 @@ try_sqlite() {
 }
 
 migrate_module_status() {
-    message "One-shot: migrating text module status to database format"
+    error_message -n "One-shot: migrating text module status to database format"
+    local OLD_IFS
 
     create_module_status
     create_module_index
+
+    OLD_IFS="${IFS}"
+    IFS=:
 
     while read package date states version size
     do
@@ -125,7 +129,9 @@ migrate_module_status() {
             echo "        where modules.package = '$package' and"
             echo "        states.name = '$state';"
         done
-    done < "${MODULE_STATUS}.txt"
+    done < "$MODULE_STATUS" | sqlite3 $MODULE_STATUS_DB
+
+    error_message -n '.'
 
     while read package dependency required flags_yes flags_no reason
     do
@@ -142,13 +148,15 @@ migrate_module_status() {
         echo "    '$flags_yes',"
         echo "    '$flags_no',"
         echo "    '$reason');"
-    done < "${DEPENDS_CACHE}.txt"
+    done < "$DEPENDS_CACHE" | sqlite3 $MODULE_STATUS_DB
+
+    error_message -n '.'
 
     while read package dependency active required flags_yes flags_no
     do
         echo "insert into depends_status values ("
-        echo "    $package",
-        echo "    $dependency",
+        echo "    '$package',"
+        echo "    '$dependency',"
         if [[ $active == on ]]
         then
             echo "    1,"
@@ -163,5 +171,9 @@ migrate_module_status() {
         fi
         echo "    '$flags_yes',"
         echo "    '$flags_no',1);"
-    done < "${DEPENDS_STATUS}.txt"
+    done < "$DEPENDS_STATUS" | sqlite3 $MODULE_STATUS_DB
+
+    error_message '.'
+
+    IFS="${OLD_IFS}"
 }
