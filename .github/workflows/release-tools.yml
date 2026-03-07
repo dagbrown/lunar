@@ -56,7 +56,11 @@ jobs:
             cd "$dir"
             archive_dir="${tool}-${tag}-linux-${{ matrix.arch_name }}"
             binary="${tool}-linux-${{ matrix.arch_name }}"
-            GOOS=linux GOARCH=${{ matrix.goarch }} go build -ldflags="-s -w" -o "$binary" .
+            sha=$(git rev-parse --short HEAD)
+            built=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            GOOS=linux GOARCH=${{ matrix.goarch }} go build \
+              -ldflags="-s -w -X main.version=${tag} -X main.commit=${sha} -X main.buildDate=${built}" \
+              -o "$binary" .
             mkdir -p "$archive_dir"
             mv "$binary" "$archive_dir/"
             tar cJf "${archive_dir}.tar.xz" "$archive_dir"
