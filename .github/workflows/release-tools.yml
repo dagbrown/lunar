@@ -1,0 +1,64 @@
+name: Release Tools
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goarch: [amd64, 386]
+        include:
+          - goarch: amd64
+            arch_name: amd64
+          - goarch: 386
+            arch_name: i686
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Discover and build Go tools
+        run: |
+          for modfile in tools/*/go.mod; do
+            dir=$(dirname "$modfile")
+            tool=$(basename "$dir")
+            echo "Building $tool for linux/${{ matrix.goarch }}"
+            cd "$dir"
+            GOOS=linux GOARCH=${{ matrix.goarch }} go build -o "${tool}-linux-${{ matrix.arch_name }}" .
+            tar czf "${tool}-linux-${{ matrix.arch_name }}.tar.gz" "${tool}-linux-${{ matrix.arch_name }}"
+            cd "$GITHUB_WORKSPACE"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tools-linux-${{ matrix.arch_name }}
+          path: tools/*/*.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          gh release create "$tag" \
+            --title "$tag" \
+            --generate-notes \
+            artifacts/*.tar.gz
