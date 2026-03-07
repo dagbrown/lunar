@@ -63,6 +63,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           tag="${GITHUB_REF#refs/tags/}"
+          find artifacts -name '*.tar.xz' -exec mv {} artifacts/ \;
           gh release create "$tag" \
             --title "$tag" \
             --generate-notes \
