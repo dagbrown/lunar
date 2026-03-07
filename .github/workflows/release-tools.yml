@@ -33,15 +33,15 @@ jobs:
             tool=$(basename "$dir")
             echo "Building $tool for linux/${{ matrix.goarch }}"
             cd "$dir"
-            GOOS=linux GOARCH=${{ matrix.goarch }} go build -o "${tool}-linux-${{ matrix.arch_name }}" .
-            tar czf "${tool}-linux-${{ matrix.arch_name }}.tar.gz" "${tool}-linux-${{ matrix.arch_name }}"
+            GOOS=linux GOARCH=${{ matrix.goarch }} go build -ldflags="-s -w" -o "${tool}-linux-${{ matrix.arch_name }}" .
+            tar cJf "${tool}-linux-${{ matrix.arch_name }}.tar.xz" "${tool}-linux-${{ matrix.arch_name }}"
             cd "$GITHUB_WORKSPACE"
           done
 
       - uses: actions/upload-artifact@v4
         with:
           name: tools-linux-${{ matrix.arch_name }}
-          path: tools/*/*.tar.gz
+          path: tools/*/*.tar.xz
 
   release:
     needs: build
@@ -61,4 +61,4 @@ jobs:
           gh release create "$tag" \
             --title "$tag" \
             --generate-notes \
-            artifacts/*.tar.gz
+            artifacts/*.tar.xz
