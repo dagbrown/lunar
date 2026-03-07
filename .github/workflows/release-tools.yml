@@ -28,13 +28,18 @@ jobs:
 
       - name: Discover and build Go tools
         run: |
+          tag="${GITHUB_REF#refs/tags/}"
           for modfile in tools/*/go.mod; do
             dir=$(dirname "$modfile")
             tool=$(basename "$dir")
             echo "Building $tool for linux/${{ matrix.goarch }}"
             cd "$dir"
-            GOOS=linux GOARCH=${{ matrix.goarch }} go build -ldflags="-s -w" -o "${tool}-linux-${{ matrix.arch_name }}" .
-            tar cJf "${tool}-linux-${{ matrix.arch_name }}.tar.xz" "${tool}-linux-${{ matrix.arch_name }}"
+            archive_dir="${tool}-${tag}-linux-${{ matrix.arch_name }}"
+            binary="${tool}-linux-${{ matrix.arch_name }}"
+            GOOS=linux GOARCH=${{ matrix.goarch }} go build -ldflags="-s -w" -o "$binary" .
+            mkdir -p "$archive_dir"
+            mv "$binary" "$archive_dir/"
+            tar cJf "${archive_dir}.tar.xz" "$archive_dir"
             cd "$GITHUB_WORKSPACE"
           done
 
