@@ -9,7 +9,27 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Test Go tools
+        run: |
+          for modfile in tools/*/go.mod; do
+            dir=$(dirname "$modfile")
+            echo "Testing $(basename "$dir")"
+            cd "$dir"
+            go test ./...
+            cd "$GITHUB_WORKSPACE"
+          done
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
