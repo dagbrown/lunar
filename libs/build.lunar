@@ -257,7 +257,11 @@ default_cmake_config() {
   verbose_msg "running \"default_cmake_config\""
   verbose_msg "MODULE_PREFIX=\"$MODULE_PREFIX\""
 
-  cmake -B $MODULE-$VERSION -S . -G Ninja \
+  # prefer Ninja builds if available but default to GNU make
+  local CMAKE_BUILD_METHOD='Unix Makefiles'
+  type -p ninja > /dev/null && CMAKE_BUILD_METHOD='Ninja'
+
+  cmake -B $MODULE-$VERSION -S . -G "$CMAKE_BUILD_METHOD" \
         -DCMAKE_INSTALL_PREFIX=$MODULE_PREFIX  \
         -DCMAKE_BUILD_TYPE=Release \
         -Wno-dev $OPTS
