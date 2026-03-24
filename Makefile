@@ -89,6 +89,7 @@ tag:
 	git tag v$(VERSION)
 
 dist:
+	git tag | grep '^v$(VERSION)$$' || $(MAKE) tag
 	git archive --format=tar --prefix="lunar-$(VERSION)/" v$(VERSION) | bzip2 > lunar-$(VERSION).tar.bz2
 
 tell:
