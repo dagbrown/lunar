@@ -1,4 +1,4 @@
-VERSION = 48.5.1
+VERSION = 48.5.2
 
 bin_PROGS = prog/lvu prog/lvis prog/lsh
 sbin_PROGS = prog/lin prog/lrm prog/lunar prog/lget
@@ -88,9 +88,15 @@ install: .PHONY
 tag:
 	git tag v$(VERSION)
 
-dist:
+dist: lunar-$(VERSION).tar.bz2
+
+lunar-$(VERSION).tar.bz2:
 	git tag | grep '^v$(VERSION)$$' || $(MAKE) tag
 	git archive --format=tar --prefix="lunar-$(VERSION)/" v$(VERSION) | bzip2 > lunar-$(VERSION).tar.bz2
+
+publish: lunar-$(VERSION).tar.bz2
+	cp $< /data/dagbrown/webpage/lunar.lart.ca/public/dl/lunar
+	sha256sum /data/dagbrown/webpage/lunar.lart.ca/public/dl/lunar/$<
 
 tell:
 	@echo "lunar-$(VERSION).tar.bz2"
