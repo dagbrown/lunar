@@ -131,7 +131,7 @@ create_module_index() {
         -printf "%h\n" | while read module
     do
         (
-            eval $(egrep '^ *(VERSION|UPDATED)' $module/DETAILS)
+            eval $(grep -E '^ *(VERSION|UPDATED)' $module/DETAILS)
             echo $module |
               sed "s:$MOONBASE::;s:^/::;s:^\(.*\)/\([^/]*\)$:\2\:\1\:$VERSION\:$UPDATED:"
         );
