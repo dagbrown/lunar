@@ -767,12 +767,12 @@ module_is_expired() {
 # purpose  : return a list of modules that need to be updated
 list_expired_modules() {
   debug_msg "list_expired_modules ($@)"
-  try_sqlite $MODULE_STATUS_DB 'select m.package from modules m
+  try_sqlite $MODULE_STATUS_DB "select m.package from modules m
     inner join module_index i on m.package = i.package
     where m.date < i.updated and not (
         select count(*) from modules_states
         where module = m.package and state_id = (
-            select id from states where name = "held" ) )'
+            select id from states where name = 'held' ) )"
 }
 
 
