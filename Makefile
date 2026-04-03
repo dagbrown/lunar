@@ -1,4 +1,4 @@
-VERSION = 48.5
+VERSION = 48.5.1
 
 bin_PROGS = prog/lvu prog/lvis prog/lsh
 sbin_PROGS = prog/lin prog/lrm prog/lunar prog/lget
