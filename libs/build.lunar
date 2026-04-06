@@ -532,6 +532,7 @@ run_build()  {
       default_build
     fi
   ) > $C_FIFO 2>&1
+  return $?
 }
 
 
