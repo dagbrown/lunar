@@ -2,8 +2,6 @@
 # DEPENDS example
 #
 
-# always end the line with && except for the last one!
-
 # single depends:
 #	depends moduleA
 
@@ -17,22 +15,22 @@
 #                       "for blabla support"
 
 # multiple depends:
-#	depends moduleA &&
+#	depends moduleA
 #	depends moduleB
 
 # or everything:
-# depends  moduleA &&
-# depends  moduleB &&
+# depends  moduleA
+# depends  moduleB
 # optional_depends  "moduleC" \
 #			"--with-configure-option" \
 #			"--without-configure-option" \
-#			"for blabla support" &&
+#			"for blabla support"
 # optional_depends  "moduleD" "" "" "For blabla support"
 
 # follower dependencies (auto-accept/reject based on leader):
 # When SDL is accepted, SDL_ttf, SDL_image, and SDL_mixer are also accepted.
 # When SDL is rejected, all three followers are also rejected.
-# optional_depends  "SDL" "--enable-sdl" "--disable-sdl" "for SDL support" &&
+# optional_depends  "SDL" "--enable-sdl" "--disable-sdl" "for SDL support"
 # optional_depends_requires SDL SDL_ttf SDL_image SDL_mixer
 
 # mutually exclusive choice (pick one of several options):
