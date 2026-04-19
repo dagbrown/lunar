@@ -240,7 +240,7 @@ fire_collected_catalysts() {
   declare -A CATALYST_SEEN
   for ENTRY in "${CATALYST_QUEUE[@]}" ; do
     IFS=: read -r REACTOR ACTION PARAM WATCHED EVENT <<< "$ENTRY"
-    SEEN_KEY="$REACTOR:$ACTION"
+    SEEN_KEY="$REACTOR:$ACTION:$PARAM"
     if [ -n "${CATALYST_SEEN[$SEEN_KEY]}" ] ; then
       debug_msg "fire_collected_catalysts: dedup skip $SEEN_KEY"
       continue
@@ -385,7 +385,7 @@ fire_catalyst_action() {
   EVENT="$5"
 
   # loop protection via visited set
-  VISITED_KEY="$WATCHED_MODULE:$EVENT:$REACTOR:$ACTION"
+  VISITED_KEY="$WATCHED_MODULE:$EVENT:$REACTOR:$ACTION:$PARAM"
   if check_catalyst_visited "$VISITED_KEY" ; then
     debug_msg "fire_catalyst_action: loop detected, skipping $VISITED_KEY"
     return 0
