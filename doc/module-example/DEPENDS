@@ -43,3 +43,13 @@
 #                         gnutls   "--with-gnutls"   "--without-gnutls" \
 #                         libressl "--with-libressl" "--without-libressl"
 
+# preferred default for unattended runs (prefix one module with @):
+# With PROMPT_DELAY, if the user doesn't answer, the @-marked member is
+# accepted and the rest rejected. Without @ no member is preferred, so
+# unattended timeout may leave none selected if none are installed.
+# At most one @ per call; if multiple are marked, the first wins.
+# optional_depends_one_of "SSL provider" \
+#                         @openssl  "--with-openssl"  "--without-openssl" \
+#                          gnutls   "--with-gnutls"   "--without-gnutls" \
+#                          libressl "--with-libressl" "--without-libressl"
+

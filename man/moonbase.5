@@ -90,7 +90,7 @@ all followers are also rejected. This must be placed after the leader's
 when the parent library is enabled (e.g., SDL_ttf and SDL_image when SDL
 is accepted).
 .TP
-.B optional_depends_one_of \fI"description"\fR \fImod1\fR \fIon1\fR \fIoff1\fR [\fImod2\fR \fIon2\fR \fIoff2\fR ...]
+.B optional_depends_one_of \fI"description"\fR [\fB@\fR]\fImod1\fR \fIon1\fR \fIoff1\fR [[\fB@\fR]\fImod2\fR \fIon2\fR \fIoff2\fR ...]
 Presents a mutually exclusive choice of optional dependencies. The user is
 prompted for each module in order; if the module is already installed, the
 default is "y", otherwise "n". Once one is accepted, the rest are
@@ -98,6 +98,13 @@ automatically rejected. On re-runs, existing choices are honored without
 re-prompting. Arguments are specified as triplets of
 \fImodule\fR, \fIon_opts\fR, \fIoff_opts\fR. The \fIdescription\fR is
 shown as a header (e.g., "SSL provider").
+.IP
+A leading \fB@\fR on a module name marks it as the preferred default for
+unattended selection. When present, \fBPROMPT_DELAY\fR will accept the
+\fB@\fR-marked member and reject the rest, regardless of which modules are
+already installed. Without any marker the existing install-state behavior
+applies. At most one marker is honored per call; if multiple are specified,
+the first wins.
 .RE
 .PP
 \fBCyclic Dependencies\fR

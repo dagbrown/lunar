@@ -440,18 +440,33 @@ run_depends() {
   }
 
   optional_depends_one_of() {
-    local DESCRIPTION DEP ON_OPTS OFF_OPTS DEFAULT DEPMOD_AVAIL CHOSEN=0 SKIPPED=0 MOD_LIST=""
+    local DESCRIPTION DEP RAW_MOD ON_OPTS OFF_OPTS DEFAULT DEPMOD_AVAIL CHOSEN=0 SKIPPED=0 MOD_LIST=""
+    local DEFAULT_MOD=""
     debug_msg "  optional_depends_one_of ($@)"
     DESCRIPTION="$1"
     shift
 
-    # Build module list for header message
+    # First pass: find the first @-marked member (if any). A leading @ on the
+    # module name marks it as the preferred default for unattended selection.
+    # If multiple members are marked, the first wins and a debug note is logged.
     local ARGS=("$@")
     local i
     local _ea_tmp
     for ((i=0; i<${#ARGS[@]}; i+=3)); do
+      if [[ "${ARGS[$i]}" == @* ]]; then
+        expand_alias _ea_tmp "${ARGS[$i]#@}"
+        if [[ -z "$DEFAULT_MOD" ]]; then
+          DEFAULT_MOD="$_ea_tmp"
+        else
+          debug_msg "  optional_depends_one_of: multiple @ markers, ignoring @$_ea_tmp (first wins: $DEFAULT_MOD)"
+        fi
+      fi
+    done
+
+    # Build module list for header message (strip @ for display)
+    for ((i=0; i<${#ARGS[@]}; i+=3)); do
       [[ -n "$MOD_LIST" ]] && MOD_LIST+=", "
-      expand_alias _ea_tmp "${ARGS[$i]}"
+      expand_alias _ea_tmp "${ARGS[$i]#@}"
       MOD_LIST+="$_ea_tmp"
     done
     message "${MODULE_COLOR}${MODULE}:${DEFAULT_COLOR}" \
@@ -459,7 +474,8 @@ run_depends() {
 
     # Process each (MOD, ON_OPTS, OFF_OPTS) triplet
     while [[ $# -ge 3 ]]; do
-      expand_alias DEP "$1"
+      RAW_MOD="${1#@}"
+      expand_alias DEP "$RAW_MOD"
       ON_OPTS="$2"
       OFF_OPTS="$3"
       shift 3
@@ -491,12 +507,24 @@ run_depends() {
         fi
         CHOSEN=1
       elif ! grep -q "^$MODULE:$DEP:" "$DEPENDS_STATUS"; then
-        # No existing entry - ask user
-        if module_installed $DEP; then
+        # No existing entry - ask user. When a @-marked default exists, force
+        # "y" for the marked member and "n" for the rest so PROMPT_DELAY picks
+        # the author's preferred default unattended.
+        if [[ -n "$DEFAULT_MOD" ]]; then
+          if [[ "$DEP" == "$DEFAULT_MOD" ]]; then
+            DEFAULT="y"
+          else
+            DEFAULT="n"
+          fi
+        elif module_installed $DEP; then
           DEFAULT="y"
-          DEPMOD_AVAIL="Use (${FILE_COLOR}installed${QUERY_COLOR}) ${MODULE_COLOR}$DEP${DEFAULT_COLOR}${MESSAGE_COLOR}"
         else
           DEFAULT="n"
+        fi
+
+        if module_installed $DEP; then
+          DEPMOD_AVAIL="Use (${FILE_COLOR}installed${QUERY_COLOR}) ${MODULE_COLOR}$DEP${DEFAULT_COLOR}${MESSAGE_COLOR}"
+        else
           DEPMOD_AVAIL="Install & use (${PROBLEM_COLOR}not installed${QUERY_COLOR}) ${MODULE_COLOR}$DEP${DEFAULT_COLOR}${MESSAGE_COLOR}"
         fi
 
@@ -699,7 +727,8 @@ create_depends_cache()
       DESCRIPTION="$1"
       shift
       while [[ $# -ge 3 ]]; do
-        MEMBER="$1"; ON_OPTS="$2"; OFF_OPTS="$3"
+        # strip optional @ marker; it is only meaningful at prompt time
+        MEMBER="${1#@}"; ON_OPTS="$2"; OFF_OPTS="$3"
         shift 3
         echo "$MODULE:$MEMBER:optional:$ON_OPTS:$OFF_OPTS:$DESCRIPTION"
       done
@@ -936,10 +965,10 @@ update_module_depends()
     shift
     local ARGS=("$@")
 
-    # Pass 1: find if any member has "on" status
+    # Pass 1: find if any member has "on" status (strip optional @ marker)
     local i
     for ((i=0; i<${#ARGS[@]}; i+=3)); do
-      NEVER_ASK=1 DEPS_ONLY= expand_alias DEP "${ARGS[$i]}"
+      NEVER_ASK=1 DEPS_ONLY= expand_alias DEP "${ARGS[$i]#@}"
       if grep -q "^$MODULE:$DEP:on:" "$DEPENDS_STATUS_BACKUP"; then
         FOUND_ON="$DEP"
         break
@@ -948,7 +977,7 @@ update_module_depends()
 
     # Pass 2: emit lines
     for ((i=0; i<${#ARGS[@]}; i+=3)); do
-      NEVER_ASK=1 DEPS_ONLY= expand_alias DEP "${ARGS[$i]}"
+      NEVER_ASK=1 DEPS_ONLY= expand_alias DEP "${ARGS[$i]#@}"
       ON_OPTS="${ARGS[$((i+1))]}"
       OFF_OPTS="${ARGS[$((i+2))]}"
       if [[ -n "$FOUND_ON" ]]; then
