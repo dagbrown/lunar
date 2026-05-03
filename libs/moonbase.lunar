@@ -56,7 +56,7 @@ SOURCE_URL_FULL=$MOONBASE_URL/$SOURCE
               "${DEFAULT_COLOR}${MESSAGE_COLOR}...${DEFAULT_COLOR}"       &&
       mv $SYSTEM_MOONBASE/zlocal/ /var/lib/lunar/.zlocal-backup    &&
       rm -rf $SYSTEM_MOONBASE                                      &&
-      TMP_MODULE_INDEX=$(temp_create "temp.module.index")          &&
+      temp_create TMP_MODULE_INDEX "temp.module.index"              &&
       cp $MODULE_INDEX $TMP_MODULE_INDEX                           &&
       lrm moonbase                                                 &&
       mkdir $SYSTEM_MOONBASE                                       &&
@@ -81,6 +81,8 @@ SOURCE_URL_FULL=$MOONBASE_URL/$SOURCE
     # get ready to regenerate the module index cache file
     create_module_index &&
     create_depends_cache &&
+    load_depends_cache &&
+    create_catalyst_cache &&
     update_depends &&
     update_plugins &&
     display_moonbase_changes &&

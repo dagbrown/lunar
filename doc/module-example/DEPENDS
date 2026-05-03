@@ -2,8 +2,6 @@
 # DEPENDS example
 #
 
-# always end the line with && except for the last one!
-
 # single depends:
 #	depends moduleA
 
@@ -17,15 +15,39 @@
 #                       "for blabla support"
 
 # multiple depends:
-#	depends moduleA &&
+#	depends moduleA
 #	depends moduleB
 
 # or everything:
-# depends  moduleA &&
-# depends  moduleB &&
+# depends  moduleA
+# depends  moduleB
 # optional_depends  "moduleC" \
 #			"--with-configure-option" \
 #			"--without-configure-option" \
-#			"for blabla support" &&
+#			"for blabla support"
 # optional_depends  "moduleD" "" "" "For blabla support"
+
+# follower dependencies (auto-accept/reject based on leader):
+# When SDL is accepted, SDL_ttf, SDL_image, and SDL_mixer are also accepted.
+# When SDL is rejected, all three followers are also rejected.
+# optional_depends  "SDL" "--enable-sdl" "--disable-sdl" "for SDL support"
+# optional_depends_requires SDL SDL_ttf SDL_image SDL_mixer
+
+# mutually exclusive choice (pick one of several options):
+# The user is asked for each module in order. Once one is chosen,
+# the rest are automatically skipped.
+# optional_depends_one_of "SSL provider" \
+#                         openssl  "--with-openssl"  "--without-openssl" \
+#                         gnutls   "--with-gnutls"   "--without-gnutls" \
+#                         libressl "--with-libressl" "--without-libressl"
+
+# preferred default for unattended runs (prefix one module with @):
+# With PROMPT_DELAY, if the user doesn't answer, the @-marked member is
+# accepted and the rest rejected. Without @ no member is preferred, so
+# unattended timeout may leave none selected if none are installed.
+# At most one @ per call; if multiple are marked, the first wins.
+# optional_depends_one_of "SSL provider" \
+#                         @openssl  "--with-openssl"  "--without-openssl" \
+#                          gnutls   "--with-gnutls"   "--without-gnutls" \
+#                          libressl "--with-libressl" "--without-libressl"
 

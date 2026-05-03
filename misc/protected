@@ -30,6 +30,9 @@
 ^\(/usr\)\?/bin/tee$
 ^\(/usr\)\?/bin/tr$
 ^\(/usr\)\?/bin/uname$
+^/bin$
+^/sbin$
+^/lib$
 ^/boot/
 ^/boot/grub/menu.1st$
 ^/etc/aliases$
